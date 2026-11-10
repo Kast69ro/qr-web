@@ -1,4 +1,3 @@
-import { useCallback } from 'react';
 import { BrowserRouter, Navigate, useLocation } from 'react-router-dom';
 import { DialogProvider } from '../core/widgets/Dialog';
 import { ToastProvider } from '../core/widgets/Toast';
@@ -10,7 +9,6 @@ import PaymentScreen from '../features/payment/PaymentScreen';
 import { AutoLock } from '../features/pin/AutoLock';
 import ChangePinScreen from '../features/pin/ChangePinScreen';
 import PinScreen from '../features/pin/PinScreen';
-import SettingsScreen from '../features/settings/SettingsScreen';
 import { ThemeProvider } from '../features/settings/ThemeContext';
 import MainShell from './MainShell';
 import { redirectFor, Routes } from './routes';
@@ -24,11 +22,8 @@ export default function App() {
           <ToastProvider>
             <DialogProvider>
               <AutoLock />
-              {/* Мобильное приложение: на широком экране — колонка по центру. */}
-              <div
-                id="app-frame"
-                className="relative mx-auto h-dvh max-w-[480px] overflow-hidden bg-bg min-[481px]:border-x min-[481px]:border-line"
-              >
+              {/* На весь экран: телефон — вкладки снизу, ПК — меню слева (MainShell). */}
+              <div id="app-frame" className="relative h-dvh overflow-hidden bg-bg">
                 <Root />
               </div>
             </DialogProvider>
@@ -53,36 +48,28 @@ function Root() {
   return <Inside path={path} />;
 }
 
-/** Вошли: вкладки снизу, внутренние экраны — поверх них. */
+/** Вошли: разделы (вкладки / меню), внутренние экраны — поверх них. */
 function Inside({ path }) {
   const location = useLocation();
-  const backToHistory = useBack(Routes.history);
-  const onPaymentClosed = useCallback(() => backToHistory(), [backToHistory]);
-  const tab = path.startsWith(Routes.history) ? 1 : 0;
+  const section = path.startsWith(Routes.history) ? 'history' : path.startsWith(Routes.settings) ? 'settings' : 'home';
+  // Операцию открывают из истории или из «Последних операций» на главной.
+  const fromHome = path === Routes.homePayment;
+  const closePayment = useBack(fromHome ? Routes.home : Routes.history);
 
   let overlay = null;
   if (path === Routes.qr) overlay = <QrFullscreenScreen />;
-  else if (path === Routes.settings) overlay = <SettingsScreen />;
-  else if (path === Routes.changePin)
-    overlay = (
-      <>
-        <SettingsScreen />
-        <div className="absolute inset-0 z-30">
-          <ChangePinScreen />
-        </div>
-      </>
-    );
-  else if (path === Routes.payment) {
+  else if (path === Routes.changePin) overlay = <ChangePinScreen />;
+  else if (path === Routes.payment || fromHome) {
     // Платёж передаётся через state: своего ID у него нет.
-    // Без state (например, открыли ссылку заново) — в историю.
+    // Без state (например, открыли ссылку заново) — в раздел, откуда открывали.
     const payment = paymentFromState(location.state?.payment);
-    if (!payment) return <Navigate to={Routes.history} replace />;
-    overlay = <PaymentScreen key={location.key} payment={payment} onClosed={onPaymentClosed} />;
+    if (!payment) return <Navigate to={fromHome ? Routes.home : Routes.history} replace />;
+    overlay = <PaymentScreen key={location.key} payment={payment} onClosed={closePayment} />;
   }
 
   return (
     <>
-      <MainShell index={tab} />
+      <MainShell section={section} />
       {overlay}
     </>
   );

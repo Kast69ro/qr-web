@@ -1,7 +1,8 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { l } from '../../core/i18n/ru';
 import { dayKey } from '../../core/utils/format';
 import { CloseIcon } from '../../core/widgets/Icons';
+import { ModalPage } from '../../core/widgets/ModalPage';
 import { dateRange } from './historyDomain';
 
 const firstMonth = new Date(2020, 0, 1);
@@ -13,8 +14,9 @@ const shortYearFmt = new Intl.DateTimeFormat('ru', { day: 'numeric', month: 'sho
 const same = (a, b) => !!a && !!b && a.getTime() === b.getTime();
 
 /**
- * Календарь «с — по» на весь экран — как системный showDateRangePicker
- * (Material 3) во Flutter-версии. `onClose(range | null)`.
+ * Календарь «с — по» — как системный showDateRangePicker (Material 3)
+ * во Flutter-версии. Телефон — на весь экран; ПК и планшет — окно по центру,
+ * клик мимо окна и Esc закрывают. `onClose(range | null)`.
  */
 export function DateRangePicker({ title, initial, onClose }) {
   const today = useMemo(() => dayKey(new Date()), []);
@@ -22,6 +24,7 @@ export function DateRangePicker({ title, initial, onClose }) {
   const [end, setEnd] = useState(initial?.to ?? null);
   const scroller = useRef(null);
   const target = useRef(null);
+  const cancel = useCallback(() => onClose(null), [onClose]);
 
   const months = useMemo(() => {
     const list = [];
@@ -31,16 +34,11 @@ export function DateRangePicker({ title, initial, onClose }) {
 
   const focusMonth = initial?.to ?? today;
   useLayoutEffect(() => {
-    target.current?.scrollIntoView({ block: 'start' });
+    // Листаем только список месяцев: scrollIntoView сдвинул бы и окно на ПК.
+    const list = scroller.current;
+    const el = target.current;
+    if (list && el) list.scrollTop = el.offsetTop - list.offsetTop;
   }, []);
-
-  useEffect(() => {
-    const onKey = (e) => {
-      if (e.key === 'Escape') onClose(null);
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
 
   const select = (d) => {
     if (start && !end && d >= start) setEnd(d);
@@ -54,13 +52,13 @@ export function DateRangePicker({ title, initial, onClose }) {
   const headline = `${start ? fmt(start) : l.pickerStart} – ${end ? fmt(end) : l.pickerEnd}`;
 
   return (
-    <div role="dialog" aria-modal="true" aria-label={title} className="anim-fade pt-safe pb-safe absolute inset-0 z-50 flex flex-col bg-bg">
-      <div className="flex min-h-14 items-center px-1">
+    <ModalPage onClose={cancel} label={title} z="z-50" panelClass="anim-fade md:h-[680px] md:max-w-[420px]">
+      <div className="flex min-h-14 shrink-0 items-center px-1 md:px-2 md:pt-2">
         <button
           type="button"
           aria-label={l.pickerClose}
-          onClick={() => onClose(null)}
-          className="flex h-12 w-12 items-center justify-center rounded-full text-fg active:bg-fg/10"
+          onClick={cancel}
+          className="flex h-12 w-12 items-center justify-center rounded-full text-fg hover:bg-hover active:bg-fg/10"
         >
           <CloseIcon />
         </button>
@@ -69,17 +67,17 @@ export function DateRangePicker({ title, initial, onClose }) {
           type="button"
           disabled={!start}
           onClick={() => onClose(dateRange(start, end ?? start))}
-          className="min-h-10 rounded-full px-3 text-[14px] font-medium text-accent active:bg-accent/10 disabled:text-fg3"
+          className="min-h-10 rounded-full px-3 text-[14px] font-medium text-accent enabled:hover:bg-accent/10 active:bg-accent/10 disabled:text-fg3"
         >
           {l.pickerSave}
         </button>
       </div>
-      <div className="pr-4 pb-3 pl-16">
+      <div className="shrink-0 pr-4 pb-3 pl-16">
         <div className="text-[14px] font-medium text-fg2">{title}</div>
         <div className="mt-2 text-[16px] font-semibold text-fg">{headline}</div>
       </div>
       <div className="border-b border-line" />
-      <div className="grid grid-cols-7 px-3 py-2 text-center text-[14px] text-fg2">
+      <div className="grid shrink-0 grid-cols-7 px-3 py-2 text-center text-[14px] text-fg2">
         {weekdays.map((w, i) => (
           <div key={i}>{w}</div>
         ))}
@@ -101,7 +99,7 @@ export function DateRangePicker({ title, initial, onClose }) {
           );
         })}
       </div>
-    </div>
+    </ModalPage>
   );
 }
 
@@ -147,7 +145,7 @@ function Month({ month, today, start, end, onSelect, innerRef }) {
                       ? 'text-fg3 opacity-60'
                       : same(d, today)
                         ? 'border border-accent text-accent'
-                        : 'text-fg active:bg-fg/10'
+                        : 'text-fg hover:bg-hover active:bg-fg/10'
                 }`}
               >
                 {d.getDate()}

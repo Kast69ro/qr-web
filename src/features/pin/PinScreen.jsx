@@ -2,8 +2,9 @@ import { useCallback } from 'react';
 import { l } from '../../core/i18n/ru';
 import { formatPhoneHidden } from '../../core/utils/format';
 import { useLatestState, useMounted } from '../../core/utils/useLatest';
-import { BrandHeader, TextLink } from '../../core/widgets/Common';
+import { TextLink } from '../../core/widgets/Common';
 import { useConfirmLogout } from '../../core/widgets/Dialog';
+import { AuthLayout } from '../auth/AuthLayout';
 import { AuthStatus, useSession } from '../auth/SessionContext';
 import { PinEntryView, pinErrorText } from './PinEntryView';
 import { pinLength } from './pinRepository';
@@ -88,13 +89,7 @@ export default function PinScreen() {
         : `${formatPhoneHidden(current?.phone ?? '')} · ${current?.terminalName ? current.terminalName : l.terminalFallback}`;
 
   return (
-    <PinEntryView
-      header={<BrandHeader />}
-      title={title}
-      subtitle={subtitle}
-      value={s.pin}
-      error={pinErrorText(s.error)}
-      onKey={key}
+    <AuthLayout
       footer={
         s.stage === PinStage.unlock ? (
           <TextLink
@@ -105,6 +100,8 @@ export default function PinScreen() {
           />
         ) : null
       }
-    />
+    >
+      <PinEntryView title={title} subtitle={subtitle} value={s.pin} error={pinErrorText(s.error)} onKey={key} />
+    </AuthLayout>
   );
 }

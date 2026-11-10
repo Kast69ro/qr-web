@@ -1,12 +1,18 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useWide } from '../utils/useMediaQuery';
+
+const ease = 'cubic-bezier(0.2, 0.8, 0.2, 1)';
 
 /**
- * Шторка снизу (как sheet в iOS / ModalBottomSheetRoute во Flutter).
- * Закрывается свайпом вниз, тапом по затемнению, Esc и кнопкой «Назад».
+ * Шторка с карточкой операции.
+ * Телефон — снизу (как sheet в iOS / ModalBottomSheetRoute во Flutter),
+ * закрывается свайпом вниз. ПК и планшет — панель справа, список виден слева.
+ * Везде закрывается тапом по затемнению, Esc и кнопкой «Назад».
  *
- * `children(close, scrollRef)` — содержимое; `bottom` — закреплено внизу.
+ * `children(close)` — содержимое; `bottom` — закреплено внизу.
  */
-export function BottomSheet({ onClosed, children, bottom }) {
+export function BottomSheet({ onClosed, children, bottom, label }) {
+  const wide = useWide();
   const [closing, setClosing] = useState(false);
   const [drag, setDrag] = useState(0);
   const sheetRef = useRef(null);
@@ -28,10 +34,15 @@ export function BottomSheet({ onClosed, children, bottom }) {
     return () => window.removeEventListener('keydown', onKey);
   }, [close]);
 
-  // Свайп вниз по всему содержимому, когда список в самом верху.
+  // Фокус — в шторку: с клавиатуры дальше листаются её кнопки, а не экран под ней.
+  useEffect(() => {
+    sheetRef.current?.focus({ preventScroll: true });
+  }, []);
+
+  // Свайп вниз по всему содержимому, когда список в самом верху. Только у шторки снизу.
   useEffect(() => {
     const el = sheetRef.current;
-    if (!el) return undefined;
+    if (!el || wide) return undefined;
     let startY = null;
     let startT = 0;
     let dy = 0;
@@ -80,9 +91,16 @@ export function BottomSheet({ onClosed, children, bottom }) {
       el.removeEventListener('touchend', end);
       el.removeEventListener('touchcancel', end);
     };
-  }, [close]);
+  }, [close, wide]);
 
-  const transform = closing ? 'translateY(100%)' : `translateY(${drag}px)`;
+  const transform = wide
+    ? closing
+      ? 'translateX(100%)'
+      : 'none'
+    : closing
+      ? 'translateY(100%)'
+      : `translateY(${drag}px)`;
+
   return (
     <div className="absolute inset-0 z-40">
       <div
@@ -93,16 +111,24 @@ export function BottomSheet({ onClosed, children, bottom }) {
         aria-hidden="true"
       />
       <div
-        className="pointer-events-none absolute inset-x-0 bottom-0 flex flex-col justify-end"
-        style={{ top: 'env(safe-area-inset-top)' }}
+        className={
+          wide
+            ? 'pointer-events-none absolute inset-y-0 right-0 flex w-full max-w-[460px]'
+            : 'pointer-events-none absolute inset-x-0 bottom-0 flex flex-col justify-end'
+        }
+        style={wide ? undefined : { top: 'env(safe-area-inset-top)' }}
       >
         <div
           ref={sheetRef}
           role="dialog"
           aria-modal="true"
-          className="pointer-events-auto flex h-[94%] flex-col overflow-hidden rounded-t-[14px] bg-bg"
+          aria-label={label}
+          tabIndex={-1}
+          className={`pointer-events-auto flex flex-col overflow-hidden bg-bg outline-none ${
+            wide ? 'h-full w-full border-l border-line elev-pop' : 'h-[94%] rounded-t-[14px]'
+          }`}
           style={{
-            animation: 'sheet-up 260ms cubic-bezier(0.2, 0.8, 0.2, 1) backwards',
+            animation: `${wide ? 'sheet-left' : 'sheet-up'} 260ms ${ease} backwards`,
             transform,
             transition: drag === 0 || closing ? 'transform 220ms ease' : 'none',
           }}
@@ -112,9 +138,11 @@ export function BottomSheet({ onClosed, children, bottom }) {
               {children(close)}
             </div>
             {/* «Ручка» поверх шапки — подсказка, что шторку можно смахнуть. */}
-            <div className="pointer-events-none absolute inset-x-0 top-1.5 flex justify-center">
-              <div className="h-[5px] w-9 rounded-[3px] bg-cell-idle" />
-            </div>
+            {!wide && (
+              <div className="pointer-events-none absolute inset-x-0 top-1.5 flex justify-center">
+                <div className="h-[5px] w-9 rounded-[3px] bg-cell-idle" />
+              </div>
+            )}
           </div>
           {bottom}
         </div>

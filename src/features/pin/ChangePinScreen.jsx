@@ -1,7 +1,9 @@
 import { useCallback } from 'react';
 import { l } from '../../core/i18n/ru';
 import { useLatestState, useMounted } from '../../core/utils/useLatest';
-import { BackLink } from '../../core/widgets/Common';
+import { BackLink, IconButton } from '../../core/widgets/Common';
+import { CloseIcon } from '../../core/widgets/Icons';
+import { ModalPage } from '../../core/widgets/ModalPage';
 import { useToast } from '../../core/widgets/Toast';
 import { useBack } from '../../app/useBack';
 import { Routes } from '../../app/routes';
@@ -12,7 +14,10 @@ import { pinLength } from './pinRepository';
 const Stage = Object.freeze({ current: 'current', create: 'create', confirm: 'confirm', done: 'done' });
 const fresh = (stage, error = null) => ({ stage, pin: '', first: '', busy: false, error });
 
-/** Смена кода входа из настроек: текущий → новый → повторить. */
+/**
+ * Смена кода входа из настроек: текущий → новый → повторить.
+ * Телефон — отдельный экран, ПК — окно поверх настроек.
+ */
 export default function ChangePinScreen() {
   const session = useSession();
   const toast = useToast();
@@ -85,13 +90,17 @@ export default function ChangePinScreen() {
         : [l.pinTitleConfirm, l.pinSubConfirm];
 
   return (
-    <PinEntryView
-      header={<BackLink label={l.back} onTap={back} />}
-      title={title}
-      subtitle={subtitle}
-      value={s.pin}
-      error={pinErrorText(s.error)}
-      onKey={key}
-    />
+    <ModalPage onClose={back} label={title}>
+      <div className="min-h-0 flex-1 overflow-y-auto px-[22px] pt-2 pb-[26px] md:px-10 md:pt-10 md:pb-10">
+        <BackLink label={l.back} onTap={back} className="md:hidden" />
+        <div className="h-[22px] md:hidden" />
+        <PinEntryView title={title} subtitle={subtitle} value={s.pin} error={pinErrorText(s.error)} onKey={key} />
+      </div>
+      <div className="absolute top-4 right-4 hidden md:block">
+        <IconButton label={l.pickerClose} onTap={back}>
+          <CloseIcon />
+        </IconButton>
+      </div>
+    </ModalPage>
   );
 }

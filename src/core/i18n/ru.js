@@ -134,4 +134,17 @@ export const l = {
   pickerStart: 'Дата начала',
   pickerEnd: 'Дата окончания',
   pickerClose: 'Закрыть',
+
+  // Только веб: раскладка для ПК (боковое меню, таблица, панели).
+  navSections: 'Разделы',
+  refresh: 'Обновить',
+  qrFullscreen: 'На весь экран',
+  homeRecent: 'Последние операции',
+  homeAllHistory: 'Вся история',
+  historyEmptyWide: 'Пока нет операций.',
+  settingsPointInfo: 'Данные точки',
+  settingsSecurity: 'Безопасность',
+  paymentDownload: 'Скачать чек',
+  authPromoTitle: 'Кабинет мерчанта',
+  authPromoText: 'Принимайте оплату по QR, следите за операциями и выгружайте отчёты в PDF.',
 };

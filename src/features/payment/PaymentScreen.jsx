@@ -2,23 +2,28 @@ import { useState } from 'react';
 import { l } from '../../core/i18n/ru';
 import { formatDayMonth, formatMoney, formatTime } from '../../core/utils/format';
 import { useMounted } from '../../core/utils/useLatest';
-import { BackLink, InfoCard, InfoRow, StatusChip } from '../../core/widgets/Common';
+import { BackLink, IconButton, InfoCard, InfoRow, StatusChip } from '../../core/widgets/Common';
 import { BottomSheet } from '../../core/widgets/BottomSheet';
 import { FitText } from '../../core/widgets/FitText';
+import { CloseIcon, DownloadIcon, ShareIcon } from '../../core/widgets/Icons';
 import { useSession } from '../auth/SessionContext';
-import { sharePdf } from '../../core/pdf/shareFile';
+import { canSharePdf, sharePdf } from '../../core/pdf/shareFile';
 import { PaymentStatus, statusStyle } from './payment';
 
 /**
  * Карточка операции. Прототип: `POS Terminal.dc.html`, стр. 135–174.
- * Вместо «Печать чека» — «Поделиться чеком» (только для оплаченных).
- * Открывается шторкой поверх истории.
+ * Вместо «Печать чека» — «Поделиться чеком» на телефоне и «Скачать чек»
+ * на ПК (только для оплаченных).
+ * Телефон — шторка снизу; ПК и планшет — панель справа, список виден слева.
+ * Открывается из истории и из «Последних операций» на главной.
  */
 export default function PaymentScreen({ payment: p, onClosed }) {
   const { state } = useSession();
   const session = state.session;
   const mounted = useMounted();
   const [share, setShare] = useState('idle'); // idle | busy | failed
+  // Телефон — окно «Поделиться», ПК — скачивание файла (см. sharePdf).
+  const [canShare] = useState(canSharePdf);
   const status = statusStyle(p.status);
   const at = p.createdAt;
   const terminalId = session?.terminalId ?? '';
@@ -44,11 +49,14 @@ export default function PaymentScreen({ payment: p, onClosed }) {
     }
   };
 
-  const shareLabel = share === 'busy' ? l.paymentSharing : share === 'failed' ? l.paymentShareError : l.paymentShare;
+  const shareLabel =
+    share === 'busy' ? l.paymentSharing : share === 'failed' ? l.paymentShareError : canShare ? l.paymentShare : l.paymentDownload;
+  const ShareGlyph = canShare ? ShareIcon : DownloadIcon;
 
   return (
     <BottomSheet
       onClosed={onClosed}
+      label={`${formatMoney(p.amount)} · ${status.label}`}
       bottom={
         <div className="pb-safe shrink-0 border-t border-line-list bg-surface">
           <div className="flex flex-col gap-2.5 px-4 pt-3 pb-4">
@@ -65,10 +73,11 @@ export default function PaymentScreen({ payment: p, onClosed }) {
                 type="button"
                 disabled={share === 'busy'}
                 onClick={shareReceipt}
-                className={`flex min-h-[52px] items-center justify-center rounded-xl border border-line-list px-4 text-center text-[16px] active:bg-disabled-bg ${
+                className={`flex min-h-[52px] items-center justify-center gap-2 rounded-xl border border-line-list px-4 text-center text-[16px] enabled:hover:bg-hover active:bg-disabled-bg ${
                   share === 'busy' ? 'bg-disabled-bg' : 'bg-surface'
                 } ${share === 'failed' ? 'text-error' : 'text-fg'}`}
               >
+                {share === 'idle' && <ShareGlyph size={20} className="shrink-0" />}
                 {shareLabel}
               </button>
             )}
@@ -79,13 +88,22 @@ export default function PaymentScreen({ payment: p, onClosed }) {
       {(close) => (
         <>
           {/* Шапка — внутри списка: свайп вниз по ней тоже закрывает шторку. */}
-          <div className="border-b border-line-list bg-surface px-4 pt-[22px] pb-4">
+          <div className="border-b border-line-list bg-surface px-4 pt-[22px] pb-4 md:px-5 md:pt-4">
             <div className="flex items-center">
+              {/* Телефон: «‹ Назад» слева, статус справа. ПК: статус слева, ✕ справа. */}
               <div className="min-w-0 flex-1">
-                <BackLink label={l.back} onTap={close} />
+                <BackLink label={l.back} onTap={close} className="md:hidden" />
+                <div className="hidden md:block">
+                  <StatusChip style={status} large />
+                </div>
               </div>
-              <div className="ml-3">
+              <div className="ml-3 md:hidden">
                 <StatusChip style={status} large />
+              </div>
+              <div className="-mr-2 ml-3 hidden md:block">
+                <IconButton label={l.pickerClose} onTap={close}>
+                  <CloseIcon />
+                </IconButton>
               </div>
             </div>
             <div className="mt-3">

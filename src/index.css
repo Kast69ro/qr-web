@@ -1,6 +1,9 @@
 @import 'tailwindcss';
 
-/* Шрифты из бренд-бука: Montserrat — весь текст, Lato — только блок TJ QR. */
+/*
+ * Шрифты из бренд-бука: Montserrat — весь текст, Lato — только блок TJ QR.
+ * Пока Montserrat не загрузился — Arial (запасной шрифт по бренд-буку).
+ */
 @font-face {
   font-family: 'Montserrat';
   src: url('./assets/fonts/Montserrat-Regular.ttf') format('truetype');
@@ -43,8 +46,8 @@
  * В разметке — только токены: `bg-surface`, `text-fg2`, `border-line`…
  */
 @theme inline {
-  --font-sans: 'Montserrat', system-ui, sans-serif;
-  --font-lato: 'Lato', 'Montserrat', sans-serif;
+  --font-sans: 'Montserrat', Arial, sans-serif;
+  --font-lato: 'Lato', 'Montserrat', Arial, sans-serif;
 
   --color-bg: var(--c-background);
   --color-surface: var(--c-surface);
@@ -89,6 +92,7 @@
   --color-snack: var(--c-snack);
   --color-snack-fg: var(--c-snack-fg);
   --color-range: var(--c-range);
+  --color-hover: var(--c-hover);
 }
 
 :root,
@@ -137,6 +141,10 @@
   --c-snack: #322f33;
   --c-snack-fg: #f5eff4;
   --c-range: #fde3e2;
+  /* Только веб: наведение мышью и тени (на ПК). */
+  --c-hover: #f5f5f2;
+  --c-shadow-card: 0 1px 2px rgba(22, 24, 26, 0.04);
+  --c-shadow-pop: 0 24px 64px -16px rgba(22, 24, 26, 0.28);
 }
 
 /* Тёмная — по системным цветам Apple (HIG, Dark Mode), акцент — бренд. */
@@ -185,6 +193,9 @@
   --c-snack: #e6e1e5;
   --c-snack-fg: #313033;
   --c-range: #4a1f21;
+  --c-hover: #2c2c2e;
+  --c-shadow-card: none;
+  --c-shadow-pop: 0 24px 64px -16px rgba(0, 0, 0, 0.7);
 }
 
 /* В слое base — чтобы утилиты Tailwind (цвета текста кнопок и т. п.) их перекрывали. */
@@ -204,7 +215,7 @@
     margin: 0;
     background: var(--c-background);
     color: var(--c-text-primary);
-    font-family: 'Montserrat', system-ui, sans-serif;
+    font-family: 'Montserrat', Arial, sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     overscroll-behavior-y: none;
@@ -223,19 +234,40 @@
   }
 }
 
-/* Скролл без полосы у ряда чипов периода. */
-.no-scrollbar {
-  scrollbar-width: none;
-}
-.no-scrollbar::-webkit-scrollbar {
-  display: none;
+/* Тонкие полосы прокрутки на ПК (мышь), на телефоне — системные. */
+@media (pointer: fine) {
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--c-cell-idle) transparent;
+  }
 }
 
-.pt-safe {
+/*
+ * Свои утилиты — через @utility: они в слое utilities, поэтому работают
+ * с вариантами (`md:pt-0` перекрывает `pt-safe`, есть `md:anim-modal`).
+ */
+
+/* Скролл без полосы у ряда чипов периода. */
+@utility no-scrollbar {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+@utility pt-safe {
   padding-top: env(safe-area-inset-top);
 }
-.pb-safe {
+@utility pb-safe {
   padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* Тени: в светлой теме — мягкие, в тёмной карточки отделяет цвет фона. */
+@utility elev-card {
+  box-shadow: var(--c-shadow-card);
+}
+@utility elev-pop {
+  box-shadow: var(--c-shadow-pop);
 }
 
 @keyframes spin {
@@ -259,6 +291,15 @@
     transform: translateY(0);
   }
 }
+/* Панель операции справа на ПК. */
+@keyframes sheet-left {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
 @keyframes dialog-in {
   from {
     opacity: 0;
@@ -267,6 +308,17 @@
   to {
     opacity: 1;
     transform: scale(1);
+  }
+}
+/* Окно по центру на ПК (календарь, смена кода). */
+@keyframes modal-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
   }
 }
 @keyframes snack-in {
@@ -279,12 +331,27 @@
     transform: translateY(0);
   }
 }
-.anim-fade {
+@utility anim-fade {
   animation: fade-in 200ms ease-out both;
 }
-.anim-dialog {
+@utility anim-dialog {
   animation: dialog-in 180ms ease-out both;
 }
-.anim-snack {
+@utility anim-modal {
+  animation: modal-in 220ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+@utility anim-snack {
   animation: snack-in 200ms ease-out both;
+}
+
+/* «Уменьшить движение» в системе — шторки и окна без выезда (спиннер крутится). */
+@media (prefers-reduced-motion: reduce) {
+  [role='dialog'],
+  [role='alertdialog'],
+  .anim-dialog,
+  .anim-modal,
+  .anim-snack {
+    animation-duration: 1ms !important;
+    transition-duration: 1ms !important;
+  }
 }

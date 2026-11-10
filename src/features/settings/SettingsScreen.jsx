@@ -1,21 +1,22 @@
 import { useNavigate } from 'react-router-dom';
 import { Routes } from '../../app/routes';
-import { useBack } from '../../app/useBack';
 import { l } from '../../core/i18n/ru';
 import { formatPhoneHidden } from '../../core/utils/format';
-import { BackLink, InfoCard, InfoRow } from '../../core/widgets/Common';
+import { Card, InfoCard, InfoRow, pageClass, PageHeader } from '../../core/widgets/Common';
 import { useConfirmLogout } from '../../core/widgets/Dialog';
 import { FitText } from '../../core/widgets/FitText';
+import { ChevronRightIcon, LockOutlineIcon, LogoutIcon } from '../../core/widgets/Icons';
 import { useSession } from '../auth/SessionContext';
 import { ThemeMode, useTheme } from './ThemeContext';
 
 /**
  * Настройки: данные точки, тема, смена кода, выход.
- * Открываются тапом по логотипу на главной.
+ * Раздел наравне с «Главной» и «Историей»: на телефоне — вкладка снизу
+ * (и тап по логотипу на главной), на ПК — пункт бокового меню.
+ * ПК: слева данные точки, справа тема и безопасность.
  */
-export default function SettingsScreen() {
+export default function SettingsScreen({ scrollRef }) {
   const navigate = useNavigate();
-  const back = useBack(Routes.home);
   const { state, signOut } = useSession();
   const theme = useTheme();
   const confirmLogout = useConfirmLogout();
@@ -23,48 +24,56 @@ export default function SettingsScreen() {
   const orDash = (v) => (v ? v : '—');
 
   return (
-    <div className="pt-safe pb-safe absolute inset-0 z-30 flex flex-col bg-bg">
-      <div className="min-h-0 flex-1 overflow-y-auto px-[22px] pt-2 pb-6">
-        <BackLink label={l.back} onTap={back} />
-        <h1 className="mt-1 text-[26px] leading-[1.15] font-semibold tracking-[-0.52px]">{l.settingsTitle}</h1>
-        <div className="h-[18px]" />
-        <InfoCard>
-          <InfoRow label={l.settingsTerminal} value={orDash(session?.terminalName)} />
-          <InfoRow label={l.settingsStore} value={orDash(session?.storeName)} />
-          <InfoRow label={l.settingsTerminalId} value={orDash(session?.terminalId)} />
-          <InfoRow label={l.settingsPhone} value={session ? formatPhoneHidden(session.phone) : '—'} />
-        </InfoCard>
-        <div className="h-3" />
-        <ThemeSelector value={theme.mode} onChange={theme.select} />
-        <div className="h-3" />
-        <ActionRow label={l.settingsChangePin} onTap={() => navigate(Routes.changePin)} />
-        <div className="h-3" />
-        <ActionRow
-          label={l.logout}
-          className="text-error"
-          showChevron={false}
-          onTap={async () => {
-            if (await confirmLogout()) signOut();
-          }}
-        />
+    <div className="pt-safe flex h-full flex-col bg-bg">
+      <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto">
+        <div className={`${pageClass} pt-[18px] pb-6 md:pt-8 md:pb-10`}>
+          <PageHeader title={l.settingsTitle} />
+          <div className="mt-5 grid gap-3 md:mt-7 lg:grid-cols-2 lg:items-start lg:gap-6">
+            <InfoCard title={l.settingsPointInfo}>
+              <InfoRow label={l.settingsTerminal} value={orDash(session?.terminalName)} />
+              <InfoRow label={l.settingsStore} value={orDash(session?.storeName)} />
+              <InfoRow label={l.settingsTerminalId} value={orDash(session?.terminalId)} />
+              <InfoRow label={l.settingsPhone} value={session ? formatPhoneHidden(session.phone) : '—'} />
+            </InfoCard>
+            <div className="flex min-w-0 flex-col gap-3 lg:gap-6">
+              <ThemeSelector value={theme.mode} onChange={theme.select} />
+              <Card className="overflow-hidden">
+                <h2 className="px-4 pt-4 pb-1 text-[15px] font-semibold text-fg md:px-5">{l.settingsSecurity}</h2>
+                <div className="divide-y divide-line-list pb-1">
+                  <ActionRow
+                    icon={<LockOutlineIcon size={22} />}
+                    label={l.settingsChangePin}
+                    onTap={() => navigate(Routes.changePin)}
+                  />
+                  <ActionRow
+                    icon={<LogoutIcon size={22} />}
+                    label={l.logout}
+                    className="text-error"
+                    showChevron={false}
+                    onTap={async () => {
+                      if (await confirmLogout()) signOut();
+                    }}
+                  />
+                </div>
+              </Card>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
 }
 
-function ActionRow({ label, onTap, className = 'text-fg', showChevron = true }) {
+function ActionRow({ icon, label, onTap, className = 'text-fg', showChevron = true }) {
   return (
     <button
       type="button"
       onClick={onTap}
-      className="flex min-h-[52px] w-full items-center rounded-xl border border-line-list bg-surface px-4 text-left active:bg-disabled-bg"
+      className={`flex min-h-[52px] w-full items-center gap-3 px-4 text-left hover:bg-hover active:bg-surface-pressed md:px-5 ${className}`}
     >
-      <span className={`min-w-0 flex-1 text-[16px] ${className}`}>{label}</span>
-      {showChevron && (
-        <span aria-hidden="true" className="text-[20px] text-fg3">
-          ›
-        </span>
-      )}
+      <span className="shrink-0 opacity-80">{icon}</span>
+      <span className="min-w-0 flex-1 text-[16px]">{label}</span>
+      {showChevron && <ChevronRightIcon size={20} className="shrink-0 text-fg3" />}
     </button>
   );
 }
@@ -77,9 +86,9 @@ function ThemeSelector({ value, onChange }) {
     [ThemeMode.dark, l.themeDark],
   ];
   return (
-    <div className="rounded-xl border border-line-list bg-surface p-4">
-      <h2 className="text-[14px] font-normal text-fg2">{l.settingsTheme}</h2>
-      <div className="mt-2.5 flex rounded-[10px] bg-key p-[3px]" role="radiogroup" aria-label={l.settingsTheme}>
+    <Card className="p-4 md:p-5">
+      <h2 className="text-[15px] font-semibold text-fg">{l.settingsTheme}</h2>
+      <div className="mt-3 flex rounded-[10px] bg-key p-[3px]" role="radiogroup" aria-label={l.settingsTheme}>
         {options.map(([mode, label]) => {
           const selected = mode === value;
           return (
@@ -90,7 +99,7 @@ function ThemeSelector({ value, onChange }) {
               aria-checked={selected}
               onClick={() => onChange(mode)}
               className={`flex min-h-11 min-w-0 flex-1 items-center justify-center rounded-lg px-1 ${
-                selected ? 'bg-segment' : 'bg-transparent'
+                selected ? 'bg-segment' : 'bg-transparent hover:bg-key-pressed'
               }`}
             >
               {/* На узком экране слово уменьшается, а не переносится. */}
@@ -101,6 +110,6 @@ function ThemeSelector({ value, onChange }) {
           );
         })}
       </div>
-    </div>
+    </Card>
   );
 }

@@ -1,11 +1,12 @@
 import { useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { l } from '../../core/i18n/ru';
-import { BrandHeader, ErrorBox, PrimaryButton } from '../../core/widgets/Common';
+import { ErrorBox, PrimaryButton } from '../../core/widgets/Common';
 import { DigitInput } from '../../core/widgets/DigitInput';
 import { FitText } from '../../core/widgets/FitText';
 import { formatPhoneHidden, formatPhoneMask, phoneCountryCode, phoneDigits } from '../../core/utils/format';
 import { pinMaxAttempts } from '../pin/pinRepository';
+import { AuthLayout } from './AuthLayout';
 import { loginFailureText } from './authRepository';
 import { SignOutReason, useSession } from './SessionContext';
 import { LoginStep, otpLength, useLoginController } from './useLoginController';
@@ -55,44 +56,36 @@ export default function LoginScreen() {
       : l.loginSubmit;
   const canSubmit = isPhone ? s.phone.length === phoneDigits : s.code.length === otpLength;
 
+  // Телефон: верх прокручивается, кнопка прижата к низу. ПК: всё в карточке.
   return (
-    <div className="pt-safe pb-safe flex h-full flex-col bg-bg">
-      {/* Верх прокручивается, кнопка прижата к низу. */}
-      <div className="flex min-h-0 flex-1 flex-col px-[22px] pt-6 pb-[26px]">
-        <div className="min-h-0 flex-1 overflow-y-auto">
-          <BrandHeader />
+    <AuthLayout footer={<PrimaryButton label={buttonLabel} loading={s.loading} onPress={canSubmit ? c.submit : null} />}>
+      {isPhone ? (
+        <>
+          <h1 className="text-[26px] leading-[1.15] font-bold tracking-[-0.52px]">{l.loginTitle}</h1>
+          <p className="mt-2 text-[14px] leading-[1.5] text-fg2">{l.loginSubtitle}</p>
           <div className="h-5" />
-          {isPhone ? (
-            <>
-              <h1 className="text-[26px] leading-[1.15] font-bold tracking-[-0.52px]">{l.loginTitle}</h1>
-              <p className="mt-2 text-[14px] leading-[1.5] text-fg2">{l.loginSubtitle}</p>
-              <div className="h-5" />
-              <DigitInput
-                key="phone"
-                value={s.phone}
-                maxLength={phoneDigits}
-                onKey={c.key}
-                keepLastDigits
-                autoComplete="tel-national"
-                onSubmit={c.submit}
-                label={l.loginPhoneLabel}
-              >
-                <PhoneField digits={s.phone} />
-              </DigitInput>
-            </>
-          ) : (
-            <CodeStep s={s} c={c} onBack={backToPhone} />
-          )}
-          {error && (
-            <div className="mt-5">
-              <ErrorBox text={error} />
-            </div>
-          )}
+          <DigitInput
+            key="phone"
+            value={s.phone}
+            maxLength={phoneDigits}
+            onKey={c.key}
+            keepLastDigits
+            autoComplete="tel-national"
+            onSubmit={c.submit}
+            label={l.loginPhoneLabel}
+          >
+            <PhoneField digits={s.phone} />
+          </DigitInput>
+        </>
+      ) : (
+        <CodeStep s={s} c={c} onBack={backToPhone} />
+      )}
+      {error && (
+        <div className="mt-5">
+          <ErrorBox text={error} />
         </div>
-        <div className="h-5 shrink-0" />
-        <PrimaryButton label={buttonLabel} loading={s.loading} onPress={canSubmit ? c.submit : null} />
-      </div>
-    </div>
+      )}
+    </AuthLayout>
   );
 }
 
@@ -100,10 +93,11 @@ function CodeStep({ s, c, onBack }) {
   const canResend = s.resendIn <= 0 && !s.loading;
   return (
     <div>
-      <p className="text-[13px] leading-[1.45] text-fg2">
+      <h1 className="text-[26px] leading-[1.15] font-bold tracking-[-0.52px]">{l.loginCodeLabel}</h1>
+      <p className="mt-2 text-[14px] leading-[1.5] text-fg2">
         {l.loginCodeHint(formatPhoneHidden(s.phone), Math.round(s.codeExpiresIn / 60))}
       </p>
-      <div className="h-2.5" />
+      <div className="h-3" />
       {/* one-time-code: iOS подставляет код из «Сообщений» над клавиатурой. */}
       <DigitInput
         key="code"
@@ -137,7 +131,7 @@ function LinkButton({ label, className, onTap }) {
       disabled={!onTap}
       onMouseDown={(e) => e.preventDefault()}
       onClick={onTap ?? undefined}
-      className={`flex min-h-11 items-center rounded-lg text-[14px] enabled:active:opacity-70 ${className}`}
+      className={`flex min-h-11 items-center rounded-lg text-[14px] enabled:hover:underline enabled:active:opacity-70 ${className}`}
     >
       {label}
     </button>

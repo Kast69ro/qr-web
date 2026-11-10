@@ -4,10 +4,12 @@ export const Routes = Object.freeze({
   pin: '/pin',
   home: '/home',
   qr: '/home/qr',
-  settings: '/home/settings',
-  changePin: '/home/settings/pin',
+  /** Операция из «Последних операций» на главной (ПК) — шторка поверх главной. */
+  homePayment: '/home/payment',
   history: '/history',
   payment: '/history/payment',
+  settings: '/settings',
+  changePin: '/settings/pin',
 });
 
 /** Куда пускать в зависимости от состояния сессии (как redirectFor во Flutter). */
