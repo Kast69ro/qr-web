@@ -1,0 +1,290 @@
+@import 'tailwindcss';
+
+/* Шрифты из бренд-бука: Montserrat — весь текст, Lato — только блок TJ QR. */
+@font-face {
+  font-family: 'Montserrat';
+  src: url('./assets/fonts/Montserrat-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Montserrat';
+  src: url('./assets/fonts/Montserrat-Medium.ttf') format('truetype');
+  font-weight: 500;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Montserrat';
+  src: url('./assets/fonts/Montserrat-SemiBold.ttf') format('truetype');
+  font-weight: 600;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Montserrat';
+  src: url('./assets/fonts/Montserrat-Bold.ttf') format('truetype');
+  font-weight: 700;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Lato';
+  src: url('./assets/fonts/Lato-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Lato';
+  src: url('./assets/fonts/Lato-Bold.ttf') format('truetype');
+  font-weight: 700;
+  font-display: swap;
+}
+
+/*
+ * Палитра — один в один из app_colors.dart (Flutter).
+ * В разметке — только токены: `bg-surface`, `text-fg2`, `border-line`…
+ */
+@theme inline {
+  --font-sans: 'Montserrat', system-ui, sans-serif;
+  --font-lato: 'Lato', 'Montserrat', sans-serif;
+
+  --color-bg: var(--c-background);
+  --color-surface: var(--c-surface);
+  --color-surface-pressed: var(--c-surface-pressed);
+  --color-line: var(--c-border);
+  --color-line-list: var(--c-border-list);
+  --color-fg: var(--c-text-primary);
+  --color-fg2: var(--c-text-secondary);
+  --color-fg3: var(--c-text-tertiary);
+  --color-accent: var(--c-accent);
+  --color-error: var(--c-error);
+  --color-error-bg: var(--c-error-bg);
+  --color-error-border: var(--c-error-border);
+  --color-key: var(--c-key);
+  --color-key-pressed: var(--c-key-pressed);
+  --color-cell-idle: var(--c-cell-idle);
+  --color-btn: var(--c-button-primary);
+  --color-btn-fg: var(--c-button-primary-text);
+  --color-btn-loading: var(--c-button-loading);
+  --color-btn-disabled: var(--c-button-disabled);
+  --color-disabled-bg: var(--c-disabled-bg);
+  --color-disabled-fg: var(--c-disabled-text);
+  --color-tab-active: var(--c-tab-active-bg);
+  --color-segment: var(--c-segment-selected);
+  --color-tjqr: var(--c-tjqr-text);
+  --color-qr-backdrop: var(--c-qr-backdrop);
+  --color-ok-bg: var(--c-success-bg);
+  --color-ok-fg: var(--c-success-fg);
+  --color-ok-dot: var(--c-success-dot);
+  --color-cancel-bg: var(--c-cancel-bg);
+  --color-cancel-fg: var(--c-cancel-fg);
+  --color-cancel-dot: var(--c-cancel-dot);
+  --color-pending-bg: var(--c-pending-bg);
+  --color-pending-fg: var(--c-pending-fg);
+  --color-pending-dot: var(--c-pending-dot);
+  --color-refund-bg: var(--c-refund-bg);
+  --color-refund-fg: var(--c-refund-fg);
+  --color-refund-dot: var(--c-refund-dot);
+  --color-unknown-bg: var(--c-unknown-bg);
+  --color-unknown-fg: var(--c-unknown-fg);
+  --color-unknown-dot: var(--c-unknown-dot);
+  --color-snack: var(--c-snack);
+  --color-snack-fg: var(--c-snack-fg);
+  --color-range: var(--c-range);
+}
+
+:root,
+[data-theme='light'] {
+  color-scheme: light;
+  --c-background: #f4f4f2;
+  --c-surface: #ffffff;
+  --c-surface-pressed: #fafaf8;
+  --c-border: #e7e7e2;
+  --c-border-list: #e2e2de;
+  --c-text-primary: #16181a;
+  --c-text-secondary: #6b7075;
+  --c-text-tertiary: #9aa0a6;
+  --c-accent: #e31e24;
+  --c-error: #b3352f;
+  --c-error-bg: #fdecea;
+  --c-error-border: #e3a9a5;
+  --c-key: #eaeae5;
+  --c-key-pressed: #e4e4df;
+  --c-cell-idle: #d7d7d2;
+  --c-button-primary: #16181a;
+  --c-button-primary-text: #ffffff;
+  --c-button-loading: #2e3237;
+  --c-button-disabled: #e2e2de;
+  --c-disabled-bg: #f0f0ec;
+  --c-disabled-text: #a6abb0;
+  --c-tab-active-bg: #fdecec;
+  --c-segment-selected: #ffffff;
+  --c-tjqr-text: #4f4f4f;
+  --c-qr-backdrop: rgba(137, 131, 131, 0.16);
+  --c-success-bg: #e8f5f0;
+  --c-success-fg: #0b7259;
+  --c-success-dot: #0e8f6f;
+  --c-cancel-bg: #fdecea;
+  --c-cancel-fg: #b3352f;
+  --c-cancel-dot: #c9403a;
+  --c-pending-bg: #fff6e5;
+  --c-pending-fg: #8a5a00;
+  --c-pending-dot: #d89a1f;
+  --c-refund-bg: #eef1fb;
+  --c-refund-fg: #3b4e8f;
+  --c-refund-dot: #5a6fb5;
+  --c-unknown-bg: #f0f0ec;
+  --c-unknown-fg: #6b7075;
+  --c-unknown-dot: #9aa0a6;
+  --c-snack: #322f33;
+  --c-snack-fg: #f5eff4;
+  --c-range: #fde3e2;
+}
+
+/* Тёмная — по системным цветам Apple (HIG, Dark Mode), акцент — бренд. */
+[data-theme='dark'] {
+  color-scheme: dark;
+  --c-background: #000000;
+  --c-surface: #1c1c1e;
+  --c-surface-pressed: #2c2c2e;
+  --c-border: #2c2c2e;
+  --c-border-list: #2c2c2e;
+  --c-text-primary: #ffffff;
+  --c-text-secondary: #8e8e93;
+  --c-text-tertiary: #636366;
+  --c-accent: #e31e24;
+  --c-error: #ff453a;
+  --c-error-bg: #452323;
+  --c-error-border: #8c2f29;
+  --c-key: #2c2c2e;
+  --c-key-pressed: #3a3a3c;
+  --c-cell-idle: #48484a;
+  --c-button-primary: #ffffff;
+  --c-button-primary-text: #000000;
+  --c-button-loading: #d1d1d6;
+  --c-button-disabled: #2c2c2e;
+  --c-disabled-bg: #2c2c2e;
+  --c-disabled-text: #636366;
+  --c-tab-active-bg: #441c1f;
+  --c-segment-selected: #636366;
+  --c-tjqr-text: #e5e5ea;
+  --c-qr-backdrop: #2c2c2e;
+  --c-success-bg: #203d28;
+  --c-success-fg: #30d158;
+  --c-success-dot: #30d158;
+  --c-cancel-bg: #452323;
+  --c-cancel-fg: #ff6961;
+  --c-cancel-dot: #ff453a;
+  --c-pending-bg: #453419;
+  --c-pending-fg: #ffb340;
+  --c-pending-dot: #ff9f0a;
+  --c-refund-bg: #192f46;
+  --c-refund-fg: #64a8ff;
+  --c-refund-dot: #0a84ff;
+  --c-unknown-bg: #2c2c2e;
+  --c-unknown-fg: #8e8e93;
+  --c-unknown-dot: #636366;
+  --c-snack: #e6e1e5;
+  --c-snack-fg: #313033;
+  --c-range: #4a1f21;
+}
+
+/* В слое base — чтобы утилиты Tailwind (цвета текста кнопок и т. п.) их перекрывали. */
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    margin: 0;
+    background: var(--c-background);
+    color: var(--c-text-primary);
+    font-family: 'Montserrat', system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    overscroll-behavior-y: none;
+  }
+
+  button {
+    cursor: pointer;
+  }
+  button:disabled {
+    cursor: default;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--c-accent);
+    outline-offset: 2px;
+  }
+}
+
+/* Скролл без полосы у ряда чипов периода. */
+.no-scrollbar {
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.pt-safe {
+  padding-top: env(safe-area-inset-top);
+}
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes sheet-up {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+@keyframes dialog-in {
+  from {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+@keyframes snack-in {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.anim-fade {
+  animation: fade-in 200ms ease-out both;
+}
+.anim-dialog {
+  animation: dialog-in 180ms ease-out both;
+}
+.anim-snack {
+  animation: snack-in 200ms ease-out both;
+}
