@@ -10,19 +10,32 @@
 
 ```sh
 npm install
-npm run dev          # http://localhost:5173, запросы /pos проксируются на тестовый сервер
-npm run build        # сборка в dist/
-npm run preview      # проверить сборку локально (тоже с прокси)
+npm run dev          # http://localhost:5173, бэк — из .env
+VITE_API_BASE_URL=https://api.example.tj npm run build   # сборка в dist/ с адресом бэка
+npm run preview      # проверить сборку локально
 ```
 
-Тестовый сервер `http://10.64.20.101:8888` — во внутренней сети банка (нужен VPN / Wi-Fi банка).
-Другой адрес бэка для прокси: `API_PROXY_TARGET=http://host:port npm run dev`.
+Тестовый сервер `http://10.64.20.101:8888` (задан в `.env`) — во внутренней сети
+банка (нужен VPN / Wi-Fi банка). Другой адрес для dev — в `.env.local`
+(`VITE_API_BASE_URL=http://host:port`), он не попадает в git. `.env` читает и `npm run build`,
+поэтому для прода адрес задаётся при сборке — иначе в сборку попадёт тестовый.
 
 ## Как устроены запросы
 
-Бэк не отдаёт CORS-заголовки, поэтому браузер ходит на **свой же origin** (`/pos/...`),
-а dev-сервер Vite (в проде — nginx) проксирует их на бэк. Если бэк когда-нибудь будет на
-отдельном домене с CORS, задайте `VITE_API_BASE_URL` (см. `.env.example`).
+Браузер ходит на бэк **напрямую** по `VITE_API_BASE_URL` (см. `.env.example`). Адрес
+вшивается в сборку, поэтому для теста и прода — разные сборки. Не задан — запросы не уходят,
+на экране «В этой сборке не задан адрес сервера».
+
+Что нужно от бэка (CORS), иначе браузер заблокирует ответы:
+
+- `Access-Control-Allow-Origin` — адрес, с которого открыт сайт (`http://localhost:5173`
+  для разработки, домен сайта в проде);
+- ответ на preflight `OPTIONS` для `POST /pos/otp/*` (тело — JSON):
+  `Access-Control-Allow-Methods: GET, POST, OPTIONS`,
+  `Access-Control-Allow-Headers: Content-Type, Accept`.
+
+Сайт по `https` не может ходить на бэк по `http` (браузер блокирует mixed content) —
+в проде бэк тоже должен быть на `https`.
 
 Ручки, параметры и разбор ответов — те же, что во Flutter (`/pos/otp/request`, `/pos/otp/verify`,
 `/pos/terminal`, `/pos/summary`, `/pos/history`), GET-запросы получают `?phone=+992…`
@@ -30,16 +43,14 @@ npm run preview      # проверить сборку локально (тож�
 
 ## Деплой (nginx)
 
+Сборка — статика, адрес бэка уже внутри (`VITE_API_BASE_URL` при `npm run build`);
+nginx только отдаёт файлы.
+
 ```nginx
 server {
     listen 443 ssl;
     server_name qr.example.tj;
     root /var/www/activ-qr-web/dist;
-
-    location /pos/ {
-        proxy_pass http://10.64.20.101:8888;
-        proxy_set_header Host $host;
-    }
 
     # SPA: все пути приложения отдают index.html
     location / {
