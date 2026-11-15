@@ -32,7 +32,7 @@ export const sessionStore = {
     secureStore.write(SecureKeys.session, JSON.stringify(session));
   },
 
-  /** Стирает всё: сессию, код доступа, счётчик попыток. */
+  /** Стирает сессию (номер и данные точки). */
   wipe() {
     secureStore.deleteAll();
   },

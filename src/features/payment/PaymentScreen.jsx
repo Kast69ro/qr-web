@@ -57,18 +57,11 @@ export default function PaymentScreen({ payment: p, onClosed }) {
     <BottomSheet
       onClosed={onClosed}
       label={`${formatMoney(p.amount)} · ${status.label}`}
+      // Внизу — только «Поделиться чеком», и только у оплаченных.
       bottom={
-        <div className="pb-safe shrink-0 border-t border-line-list bg-surface">
-          <div className="flex flex-col gap-2.5 px-4 pt-3 pb-4">
-            {/* «Возврат платежа» — пока всегда неактивна (возвраты ещё не готовы на бэке). */}
-            <button
-              type="button"
-              disabled
-              className="flex min-h-14 items-center justify-center rounded-xl border border-line-list bg-disabled-bg px-4 text-center text-[17px] font-semibold text-disabled-fg"
-            >
-              {l.paymentRefund}
-            </button>
-            {p.status === PaymentStatus.success && (
+        p.status === PaymentStatus.success && (
+          <div className="pb-safe shrink-0 border-t border-line-list bg-surface">
+            <div className="flex flex-col gap-2.5 px-4 pt-3 pb-4">
               <button
                 type="button"
                 disabled={share === 'busy'}
@@ -80,9 +73,9 @@ export default function PaymentScreen({ payment: p, onClosed }) {
                 {share === 'idle' && <ShareGlyph size={20} className="shrink-0" />}
                 {shareLabel}
               </button>
-            )}
+            </div>
           </div>
-        </div>
+        )
       }
     >
       {(close) => (

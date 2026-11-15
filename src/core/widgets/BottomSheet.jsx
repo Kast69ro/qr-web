@@ -134,7 +134,8 @@ export function BottomSheet({ onClosed, children, bottom, label }) {
           }}
         >
           <div className="relative min-h-0 flex-1">
-            <div ref={scrollRef} className="h-full overflow-y-auto overscroll-contain">
+            {/* Без нижней панели — отступ под «полоску» iPhone, чтобы низ не прятался. */}
+            <div ref={scrollRef} className={`h-full overflow-y-auto overscroll-contain ${bottom ? '' : 'pb-safe'}`}>
               {children(close)}
             </div>
             {/* «Ручка» поверх шапки — подсказка, что шторку можно смахнуть. */}

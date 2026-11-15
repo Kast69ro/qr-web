@@ -1,14 +1,13 @@
 import { BrowserRouter, Navigate, useLocation } from 'react-router-dom';
 import { DialogProvider } from '../core/widgets/Dialog';
 import { ToastProvider } from '../core/widgets/Toast';
+import { AutoLock } from '../features/auth/AutoLock';
 import LoginScreen from '../features/auth/LoginScreen';
 import { SessionProvider, useSession } from '../features/auth/SessionContext';
+import UnlockScreen from '../features/auth/UnlockScreen';
 import QrFullscreenScreen from '../features/home/QrFullscreenScreen';
 import { paymentFromState } from '../features/payment/payment';
 import PaymentScreen from '../features/payment/PaymentScreen';
-import { AutoLock } from '../features/pin/AutoLock';
-import ChangePinScreen from '../features/pin/ChangePinScreen';
-import PinScreen from '../features/pin/PinScreen';
 import { ThemeProvider } from '../features/settings/ThemeContext';
 import MainShell from './MainShell';
 import { redirectFor, Routes } from './routes';
@@ -43,8 +42,7 @@ function Root() {
   if (target) return <Navigate to={target} replace />;
 
   if (path === Routes.login) return <LoginScreen />;
-  // Ключ по статусу: после смены «создать» → «ввести» экран пересоздаётся.
-  if (path === Routes.pin) return <PinScreen key={state.status} />;
+  if (path === Routes.unlock) return <UnlockScreen />;
   return <Inside path={path} />;
 }
 
@@ -58,7 +56,6 @@ function Inside({ path }) {
 
   let overlay = null;
   if (path === Routes.qr) overlay = <QrFullscreenScreen />;
-  else if (path === Routes.changePin) overlay = <ChangePinScreen />;
   else if (path === Routes.payment || fromHome) {
     // Платёж передаётся через state: своего ID у него нет.
     // Без state (например, открыли ссылку заново) — в раздел, откуда открывали.

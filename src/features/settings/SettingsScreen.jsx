@@ -1,22 +1,19 @@
-import { useNavigate } from 'react-router-dom';
-import { Routes } from '../../app/routes';
 import { l } from '../../core/i18n/ru';
 import { formatPhoneHidden } from '../../core/utils/format';
 import { Card, InfoCard, InfoRow, pageClass, PageHeader } from '../../core/widgets/Common';
 import { useConfirmLogout } from '../../core/widgets/Dialog';
 import { FitText } from '../../core/widgets/FitText';
-import { ChevronRightIcon, LockOutlineIcon, LogoutIcon } from '../../core/widgets/Icons';
+import { ChevronRightIcon, LogoutIcon } from '../../core/widgets/Icons';
 import { useSession } from '../auth/SessionContext';
 import { ThemeMode, useTheme } from './ThemeContext';
 
 /**
- * Настройки: данные точки, тема, смена кода, выход.
+ * Настройки: данные точки, тема, выход.
  * Раздел наравне с «Главной» и «Историей»: на телефоне — вкладка снизу
  * (и тап по логотипу на главной), на ПК — пункт бокового меню.
- * ПК: слева данные точки, справа тема и безопасность.
+ * ПК: слева данные точки, справа тема и выход.
  */
 export default function SettingsScreen({ scrollRef }) {
-  const navigate = useNavigate();
   const { state, signOut } = useSession();
   const theme = useTheme();
   const confirmLogout = useConfirmLogout();
@@ -38,13 +35,7 @@ export default function SettingsScreen({ scrollRef }) {
             <div className="flex min-w-0 flex-col gap-3 lg:gap-6">
               <ThemeSelector value={theme.mode} onChange={theme.select} />
               <Card className="overflow-hidden">
-                <h2 className="px-4 pt-4 pb-1 text-[15px] font-semibold text-fg md:px-5">{l.settingsSecurity}</h2>
-                <div className="divide-y divide-line-list pb-1">
-                  <ActionRow
-                    icon={<LockOutlineIcon size={22} />}
-                    label={l.settingsChangePin}
-                    onTap={() => navigate(Routes.changePin)}
-                  />
+                <div className="py-1">
                   <ActionRow
                     icon={<LogoutIcon size={22} />}
                     label={l.logout}

@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 
 /**
  * Ввод цифр с системной клавиатуры поверх своего отображения
- * (поле телефона, ячейки SMS-кода, точки кода доступа).
+ * (поле телефона, ячейки SMS-кода).
  *
  * Над `children` лежит невидимый `<input>`: тап по `children` открывает
  * клавиатуру, а изменения текста превращаются в вызовы `onKey`:
@@ -14,11 +14,11 @@ export function DigitInput({
   maxLength,
   onKey,
   children,
-  obscure = false,
   autoComplete = 'off',
   onSubmit,
   keepLastDigits = false,
   label,
+  id,
   autoFocus = true,
 }) {
   const ref = useRef(null);
@@ -56,16 +56,22 @@ export function DigitInput({
   };
 
   return (
-    <div className="relative">
+    // `group`: `children` могут подсветить рамку, пока поле в фокусе (group-focus-within).
+    <div className="group relative">
       {children}
       <input
         ref={ref}
+        id={id}
         value={value}
         onChange={onChange}
         onSelect={keepCaretAtEnd}
         onFocus={keepCaretAtEnd}
         onKeyDown={(e) => {
-          if (e.key === 'Enter') onSubmit?.();
+          if (e.key === 'Enter') {
+            // Поле может стоять в <form> — не отправляем её второй раз.
+            e.preventDefault();
+            onSubmit?.();
+          }
         }}
         type="text"
         inputMode="numeric"
@@ -76,8 +82,6 @@ export function DigitInput({
         autoCapitalize="off"
         spellCheck={false}
         aria-label={label}
-        data-1p-ignore={obscure || undefined}
-        data-lpignore={obscure || undefined}
         // Поле невидимо: цифры, курсор и рамку рисует `children`.
         className="absolute inset-0 h-full w-full cursor-pointer appearance-none border-0 bg-transparent p-0 text-[16px] text-transparent caret-transparent opacity-0 outline-none"
       />

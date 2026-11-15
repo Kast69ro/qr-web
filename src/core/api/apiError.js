@@ -14,13 +14,15 @@ export const ApiErrorKind = Object.freeze({
 
 /** Единая ошибка API. Экран показывает `detail` с бэка, если он есть. */
 export class ApiException extends Error {
-  constructor(kind, { statusCode = null, detail = null } = {}) {
-    // Без телефона, кодов и тела ответа — безопасно для логов.
+  constructor(kind, { statusCode = null, detail = null, retryAfter = null } = {}) {
+    // Без телефона, кодов, токенов и тела ответа — безопасно для логов.
     super(`ApiException(${kind}, ${statusCode})`);
     this.name = 'ApiException';
     this.kind = kind;
     this.statusCode = statusCode;
     this.detail = detail;
+    /** Секунды из `Retry-After` (на 429), если бэк его прислал и CORS его отдаёт. */
+    this.retryAfter = retryAfter;
   }
 
   /** Нет сети / таймаут — показываем ошибку с кнопкой «Повторить». */

@@ -1,102 +1,150 @@
-import { useEffect, useRef } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useEffect, useId, useRef } from 'react';
+import { useLocation, useNavigate, useNavigationType } from 'react-router-dom';
 import { l } from '../../core/i18n/ru';
 import { ErrorBox, PrimaryButton } from '../../core/widgets/Common';
 import { DigitInput } from '../../core/widgets/DigitInput';
 import { FitText } from '../../core/widgets/FitText';
-import { formatPhoneHidden, formatPhoneMask, phoneCountryCode, phoneDigits } from '../../core/utils/format';
-import { pinMaxAttempts } from '../pin/pinRepository';
+import { CheckIcon } from '../../core/widgets/Icons';
+import { formatPhoneHidden, formatPhoneMask, fullPhone, phoneCountryCode, phoneDigits } from '../../core/utils/format';
 import { AuthLayout } from './AuthLayout';
-import { loginFailureText } from './authRepository';
-import { SignOutReason, useSession } from './SessionContext';
-import { LoginStep, otpLength, useLoginController } from './useLoginController';
+import { loginFailureText, passwordMaxLength, passwordMinLength } from './authRepository';
+import { FieldLabel, Heading, LinkButton, PasswordField } from './authWidgets';
+import { SessionReason, useSession } from './SessionContext';
+import { LoginStep, loginStepOrder, otpLength, passwordLengthOk, useLoginController } from './useLoginController';
 
-/** Вход: телефон → SMS-код. Прототип: `POS Terminal.dc.html`, стр. 213–267. */
+const stepIndex = (step) => loginStepOrder.indexOf(step);
+
+/**
+ * Вход: номер → код из SMS → пароль (придумать или задать новый).
+ * Кнопка «Назад» браузера возвращает на шаг назад.
+ */
 export default function LoginScreen() {
-  const [s, c] = useLoginController();
+  // «Забыли пароль?» с экрана пароля — номер уже набран.
   const { state: session } = useSession();
-  const isPhone = s.step === LoginStep.phone;
-  const navigate = useNavigate();
-  const location = useLocation();
-  const pushed = useRef(false);
+  const [s, c] = useLoginController(session.phoneHint);
+  useStepHistory(s.step, c.backTo);
 
-  // Кнопка «Назад» браузера на шаге кода возвращает к номеру.
-  useEffect(() => {
-    if (s.step === LoginStep.code && !pushed.current && !location.state?.loginCode) {
-      pushed.current = true;
-      navigate(location.pathname, { state: { loginCode: true } });
-    }
-  }, [s.step, location.state, location.pathname, navigate]);
-
-  useEffect(() => {
-    if (pushed.current && !location.state?.loginCode) {
-      pushed.current = false;
-      c.backToPhone();
-    }
-  }, [location.state, c]);
-
-  const backToPhone = () => {
-    if (pushed.current && location.state?.loginCode) navigate(-1);
-    else c.backToPhone();
-  };
-
-  // Сессию стёрли после 5 неверных кодов — объясняем, пока человек не начал ввод.
+  // Сессия истекла — объясняем, пока человек не запросил код.
   const error = s.failure
     ? loginFailureText(s.failure)
-    : session.reason === SignOutReason.pinLockedOut && isPhone && s.phone === ''
-      ? l.pinLockedOut(pinMaxAttempts)
+    : session.reason === SessionReason.sessionExpired && s.step === LoginStep.phone
+      ? l.errSessionExpired
       : null;
 
-  const buttonLabel = s.loading
-    ? isPhone
-      ? l.loginSendingCode
-      : l.loginVerifying
-    : isPhone
-      ? l.loginGetCode
-      : l.loginSubmit;
-  const canSubmit = isPhone ? s.phone.length === phoneDigits : s.code.length === otpLength;
+  const { label, busyLabel, ready } = buttonFor(s);
 
   // Телефон: верх прокручивается, кнопка прижата к низу. ПК: всё в карточке.
   return (
-    <AuthLayout footer={<PrimaryButton label={buttonLabel} loading={s.loading} onPress={canSubmit ? c.submit : null} />}>
-      {isPhone ? (
-        <>
-          <h1 className="text-[26px] leading-[1.15] font-bold tracking-[-0.52px]">{l.loginTitle}</h1>
-          <p className="mt-2 text-[14px] leading-[1.5] text-fg2">{l.loginSubtitle}</p>
-          <div className="h-5" />
-          <DigitInput
-            key="phone"
-            value={s.phone}
-            maxLength={phoneDigits}
-            onKey={c.key}
-            keepLastDigits
-            autoComplete="tel-national"
-            onSubmit={c.submit}
-            label={l.loginPhoneLabel}
-          >
-            <PhoneField digits={s.phone} />
-          </DigitInput>
-        </>
-      ) : (
-        <CodeStep s={s} c={c} onBack={backToPhone} />
-      )}
-      {error && (
-        <div className="mt-5">
-          <ErrorBox text={error} />
-        </div>
-      )}
+    <AuthLayout
+      footer={<PrimaryButton label={s.loading ? busyLabel : label} loading={s.loading} onPress={ready ? c.submit : null} />}
+    >
+      {/* form — чтобы менеджер паролей предложил сохранить новый пароль. */}
+      <form
+        noValidate
+        onSubmit={(e) => {
+          e.preventDefault();
+          c.submit();
+        }}
+      >
+        {s.step === LoginStep.phone && <PhoneStep s={s} c={c} />}
+        {s.step === LoginStep.code && <CodeStep s={s} c={c} />}
+        {s.step === LoginStep.newPassword && <NewPasswordStep s={s} c={c} />}
+        {error && (
+          <div className="mt-5">
+            <ErrorBox text={error} />
+          </div>
+        )}
+      </form>
     </AuthLayout>
   );
 }
 
-function CodeStep({ s, c, onBack }) {
+function buttonFor(s) {
+  switch (s.step) {
+    case LoginStep.phone:
+      return { label: l.loginGetCode, busyLabel: l.loginSendingCode, ready: s.phone.length === phoneDigits };
+    case LoginStep.code:
+      return { label: l.loginSubmit, busyLabel: l.loginVerifying, ready: s.code.length === otpLength };
+    default:
+      return {
+        label: l.passwordSave,
+        busyLabel: l.passwordSaving,
+        ready: passwordLengthOk(s.newPassword) && s.newPassword === s.repeatPassword,
+      };
+  }
+}
+
+/**
+ * Шаги входа ↔ история браузера: шаг вперёд — новая запись, «Назад» в
+ * браузере — шаг назад, а шаг назад из кнопок экрана убирает записи.
+ */
+function useStepHistory(step, backTo) {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const navigationType = useNavigationType();
+  const synced = useRef(location.key);
+  const raw = location.state?.loginStep;
+  const historyStep = loginStepOrder.includes(raw) ? raw : LoginStep.phone;
+
+  useEffect(() => {
+    if (historyStep === step) {
+      synced.current = location.key;
+      return;
+    }
+    const userMoved = navigationType === 'POP' && location.key !== synced.current;
+    synced.current = location.key;
+    const delta = stepIndex(step) - stepIndex(historyStep);
+    if (userMoved) {
+      // «Назад» — на шаг назад. «Вперёд» или назад нельзя (идёт запрос) —
+      // возвращаем историю туда, где экран.
+      if (delta > 0 && backTo(historyStep)) return;
+      navigate(delta);
+      return;
+    }
+    if (delta > 0) navigate(location.pathname, { state: { loginStep: step } });
+    else navigate(delta);
+  }, [step, historyStep, location.key, location.pathname, navigationType, navigate, backTo]);
+}
+
+function PhoneStep({ s, c }) {
+  return (
+    <>
+      <Heading title={l.loginTitle} subtitle={l.loginSubtitle} />
+      <div className="h-6" />
+      <PhoneInput s={s} c={c} autoComplete="tel-national" onSubmit={c.submit} />
+    </>
+  );
+}
+
+function PhoneInput({ s, c, autoComplete, onSubmit }) {
+  const id = useId();
+  return (
+    <div>
+      <FieldLabel htmlFor={id}>{l.loginPhoneLabel}</FieldLabel>
+      <DigitInput
+        key="phone"
+        id={id}
+        value={s.phone}
+        maxLength={phoneDigits}
+        onKey={c.key}
+        keepLastDigits
+        autoComplete={autoComplete}
+        onSubmit={onSubmit}
+      >
+        <PhoneField digits={s.phone} />
+      </DigitInput>
+    </div>
+  );
+}
+
+function CodeStep({ s, c }) {
   const canResend = s.resendIn <= 0 && !s.loading;
   return (
     <div>
-      <h1 className="text-[26px] leading-[1.15] font-bold tracking-[-0.52px]">{l.loginCodeLabel}</h1>
-      <p className="mt-2 text-[14px] leading-[1.5] text-fg2">
-        {l.loginCodeHint(formatPhoneHidden(s.phone), Math.round(s.codeExpiresIn / 60))}
-      </p>
+      <Heading
+        title={l.loginCodeLabel}
+        subtitle={l.loginCodeHint(formatPhoneHidden(s.phone), Math.round(s.codeExpiresIn / 60))}
+      />
       <div className="h-3" />
       {/* one-time-code: iOS подставляет код из «Сообщений» над клавиатурой. */}
       <DigitInput
@@ -112,7 +160,11 @@ function CodeStep({ s, c, onBack }) {
       </DigitInput>
       <div className="h-0.5" />
       <div className="flex flex-wrap items-center justify-between gap-x-3">
-        <LinkButton label={l.loginChangePhone} className="text-accent" onTap={s.loading ? null : onBack} />
+        <LinkButton
+          label={l.loginChangePhone}
+          className="text-accent"
+          onTap={s.loading ? null : () => c.backTo(LoginStep.phone)}
+        />
         <LinkButton
           label={s.resendIn > 0 ? l.loginResendIn(s.resendIn) : l.loginResend}
           className={`tabular-nums ${canResend ? 'text-accent' : 'text-fg3'}`}
@@ -123,29 +175,84 @@ function CodeStep({ s, c, onBack }) {
   );
 }
 
-/** Текстовая ссылка с зоной нажатия 44 px. */
-function LinkButton({ label, className, onTap }) {
+function NewPasswordStep({ s, c }) {
+  const repeatRef = useRef(null);
+  const lengthOk = passwordLengthOk(s.newPassword);
+  const matches = s.repeatPassword !== '' && s.newPassword === s.repeatPassword;
+
   return (
-    <button
-      type="button"
-      disabled={!onTap}
-      onMouseDown={(e) => e.preventDefault()}
-      onClick={onTap ?? undefined}
-      className={`flex min-h-11 items-center rounded-lg text-[14px] enabled:hover:underline enabled:active:opacity-70 ${className}`}
-    >
-      {label}
-    </button>
+    <>
+      <Heading
+        title={s.passwordSet ? l.passwordResetTitle : l.passwordCreateTitle}
+        subtitle={s.passwordSet ? l.passwordResetSub : l.passwordCreateSub}
+      />
+      {/* Логин для менеджера паролей: сохранит новый пароль к этому номеру. */}
+      <input
+        type="text"
+        name="username"
+        autoComplete="username"
+        value={fullPhone(s.phone)}
+        readOnly
+        tabIndex={-1}
+        aria-hidden="true"
+        className="sr-only"
+      />
+      <div className="h-6" />
+      <PasswordField
+        label={l.passwordNewLabel}
+        value={s.newPassword}
+        onChange={(v) => c.edit('newPassword', v)}
+        autoComplete="new-password"
+        autoFocus
+        invalid={s.failure != null}
+        onEnter={() => repeatRef.current?.focus()}
+      />
+      <div className="h-4" />
+      <PasswordField
+        inputRef={repeatRef}
+        label={l.passwordRepeatLabel}
+        value={s.repeatPassword}
+        onChange={(v) => c.edit('repeatPassword', v)}
+        autoComplete="new-password"
+        invalid={s.repeatPassword.length >= s.newPassword.length && s.repeatPassword !== '' && !matches}
+        onEnter={c.submit}
+      />
+      <ul className="mt-4 space-y-1.5" aria-live="polite">
+        <Rule ok={lengthOk} text={l.passwordRuleLength(passwordMinLength, passwordMaxLength)} />
+        <Rule ok={matches} text={l.passwordRuleMatch} />
+      </ul>
+    </>
   );
 }
 
-/** Поле «+992 ·· ··· ·· ··». */
+/** Правило пароля: серое, пока не выполнено, зелёное с галочкой — когда выполнено. */
+function Rule({ ok, text }) {
+  return (
+    <li className={`flex items-center gap-2 text-[13px] transition-colors ${ok ? 'text-ok-fg' : 'text-fg3'}`}>
+      <span
+        aria-hidden="true"
+        className={`flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full border-[1.5px] transition-colors ${
+          ok ? 'border-transparent bg-ok-bg' : 'border-line-list'
+        }`}
+      >
+        {ok && <CheckIcon size={13} />}
+      </span>
+      <span>
+        {text}
+        <span className="sr-only">{ok ? ' — выполнено' : ' — не выполнено'}</span>
+      </span>
+    </li>
+  );
+}
+
+/** Поле «+992 ·· ··· ·· ··». Рамка акцентная, когда номер набран; в фокусе — темнее. */
 function PhoneField({ digits }) {
   const ready = digits.length === phoneDigits;
   return (
     <div
       aria-hidden="true"
-      className={`flex min-h-[60px] items-center rounded-2xl border-[1.5px] bg-surface px-5 py-2 ${
-        ready ? 'border-accent' : 'border-line-list'
+      className={`flex min-h-[60px] items-center rounded-2xl border-[1.5px] bg-surface px-5 py-2 transition-colors ${
+        ready ? 'border-accent' : 'border-line-list group-focus-within:border-fg3'
       }`}
     >
       <span className="shrink-0 text-[18px] text-fg2 tabular-nums">{phoneCountryCode}</span>
