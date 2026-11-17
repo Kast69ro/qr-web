@@ -8,13 +8,8 @@ import { Spinner } from './Spinner';
 
 export { appLogo };
 
-/**
- * Поля страницы: на телефоне 22 px, как в прототипе; на ПК шире,
- * а контент не растягивается на весь монитор.
- */
 export const pageClass = 'mx-auto w-full max-w-[1200px] px-[22px] md:px-8 lg:px-10';
 
-/** Лого + «Activ QR / кабинет мерчанта» на экранах входа и кода. */
 export function BrandHeader({ onDark = false }) {
   return (
     <div className="flex items-center">
@@ -29,7 +24,6 @@ export function BrandHeader({ onDark = false }) {
   );
 }
 
-/** Заголовок раздела: название, подпись и кнопки справа. */
 export function PageHeader({ title, subtitle, actions, titleClass = 'text-[26px] tracking-[-0.52px]' }) {
   return (
     <header className="flex items-center gap-3">
@@ -42,12 +36,10 @@ export function PageHeader({ title, subtitle, actions, titleClass = 'text-[26px]
   );
 }
 
-/** Белая карточка с рамкой (в светлой теме — с лёгкой тенью). */
 export function Card({ children, className = '' }) {
   return <div className={`rounded-[20px] border border-line bg-surface elev-card ${className}`}>{children}</div>;
 }
 
-/** Красный блок с текстом ошибки. */
 export function ErrorBox({ text }) {
   return (
     <div role="alert" aria-live="polite" className="w-full rounded-xl bg-error-bg px-4 py-3.5 text-[14px] leading-[1.45] text-error">
@@ -56,7 +48,6 @@ export function ErrorBox({ text }) {
   );
 }
 
-/** Ошибка загрузки с кнопкой «Повторить». Не закрывает экран. */
 export function RetryBanner({ text, retryLabel, onRetry }) {
   return (
     <div role="alert" aria-live="polite" className="flex items-center rounded-xl bg-error-bg py-1 pr-1 pl-4">
@@ -72,7 +63,6 @@ export function RetryBanner({ text, retryLabel, onRetry }) {
   );
 }
 
-/** Карточка с полями «название — значение», строки через разделитель. */
 export function InfoCard({ title, children }) {
   return (
     <Card className="px-4 md:px-5">
@@ -83,7 +73,6 @@ export function InfoCard({ title, children }) {
 }
 
 export function InfoRow({ label, value }) {
-  // Подпись — не шире половины строки, значение занимает всё остальное.
   return (
     <div className="flex items-baseline gap-3.5 py-3.5">
       <dt className="max-w-[50%] shrink-0 text-[14px] text-fg2">{label}</dt>
@@ -92,7 +81,6 @@ export function InfoRow({ label, value }) {
   );
 }
 
-/** Белая карточка с бордером, которая подсвечивается при нажатии и наведении. */
 export function PressableCard({
   children,
   radius,
@@ -124,10 +112,6 @@ export function PressableCard({
   );
 }
 
-/**
- * Тёмная кнопка 58 px («Получить код», «Войти»).
- * Серая, когда `onPress` == null; темнее и без нажатия, когда `loading`.
- */
 export function PrimaryButton({ label, onPress, loading = false }) {
   const active = onPress != null || loading;
   const bg = loading ? 'bg-btn-loading' : active ? 'bg-btn hover:opacity-90 active:opacity-85' : 'bg-btn-disabled';
@@ -148,7 +132,6 @@ export function PrimaryButton({ label, onPress, loading = false }) {
   );
 }
 
-/** Текстовая кнопка по центру с зоной нажатия 44 px («Выйти» под кодом). */
 export function TextLink({ label, onTap, className = 'text-fg2 hover:text-fg' }) {
   return (
     <button
@@ -161,7 +144,6 @@ export function TextLink({ label, onTap, className = 'text-fg2 hover:text-fg' })
   );
 }
 
-/** «‹ Назад» в шапке. */
 export function BackLink({ label, onTap, className = '' }) {
   return (
     <div className={`flex ${className}`}>
@@ -177,7 +159,6 @@ export function BackLink({ label, onTap, className = '' }) {
   );
 }
 
-/** Круглая кнопка-значок 44 px. Пока `busy` — спиннер вместо значка. */
 export function IconButton({ label, onTap, children, busy = false, className = '' }) {
   return (
     <button
@@ -194,10 +175,6 @@ export function IconButton({ label, onTap, children, busy = false, className = '
   );
 }
 
-/**
- * Кнопка в шапке раздела: на телефоне — только значок (как во Flutter),
- * на ПК — «таблетка» со значком и подписью.
- */
 export function ToolbarButton({ icon, label, busyLabel, onTap, busy = false, className = '' }) {
   const text = busy && busyLabel ? busyLabel : label;
   return (
@@ -216,10 +193,6 @@ export function ToolbarButton({ icon, label, busyLabel, onTap, busy = false, cla
   );
 }
 
-/**
- * Лого TJ QR | разделитель | «QR рамзи ягона» (стандарт НБТ).
- * `onDark` — на тёмной бренд-панели независимо от темы.
- */
 export function TjQrBrandRow({ onDark = false }) {
   const { dark } = useTheme();
   const darkLogo = onDark || dark;
@@ -242,7 +215,6 @@ export function TjQrBrandRow({ onDark = false }) {
   );
 }
 
-/** Чип статуса операции: «Оплачено», «Отклонён»… */
 export function StatusChip({ style, large = false }) {
   return (
     <span

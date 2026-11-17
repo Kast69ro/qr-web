@@ -1,4 +1,3 @@
-/** Аналог CircularProgressIndicator: дуга цвета акцента. */
 export function Spinner({ size = 36, stroke = 4, className = 'text-accent' }) {
   const r = (size - stroke) / 2;
   const c = 2 * Math.PI * r;

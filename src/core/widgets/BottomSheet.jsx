@@ -3,14 +3,6 @@ import { useWide } from '../utils/useMediaQuery';
 
 const ease = 'cubic-bezier(0.2, 0.8, 0.2, 1)';
 
-/**
- * Шторка с карточкой операции.
- * Телефон — снизу (как sheet в iOS / ModalBottomSheetRoute во Flutter),
- * закрывается свайпом вниз. ПК и планшет — панель справа, список виден слева.
- * Везде закрывается тапом по затемнению, Esc и кнопкой «Назад».
- *
- * `children(close)` — содержимое; `bottom` — закреплено внизу.
- */
 export function BottomSheet({ onClosed, children, bottom, label }) {
   const wide = useWide();
   const [closing, setClosing] = useState(false);
@@ -34,12 +26,10 @@ export function BottomSheet({ onClosed, children, bottom, label }) {
     return () => window.removeEventListener('keydown', onKey);
   }, [close]);
 
-  // Фокус — в шторку: с клавиатуры дальше листаются её кнопки, а не экран под ней.
   useEffect(() => {
     sheetRef.current?.focus({ preventScroll: true });
   }, []);
 
-  // Свайп вниз по всему содержимому, когда список в самом верху. Только у шторки снизу.
   useEffect(() => {
     const el = sheetRef.current;
     if (!el || wide) return undefined;
@@ -76,7 +66,6 @@ export function BottomSheet({ onClosed, children, bottom, label }) {
       startY = null;
       const h = el.offsetHeight || 1;
       const velocity = dy / Math.max(performance.now() - startT, 1);
-      // Отпустили ниже середины экрана или смахнули быстро — закрываем.
       if (dy > h * 0.45 || (velocity > 0.6 && dy > 40)) close();
       else setDrag(0);
       dy = 0;
@@ -134,11 +123,9 @@ export function BottomSheet({ onClosed, children, bottom, label }) {
           }}
         >
           <div className="relative min-h-0 flex-1">
-            {/* Без нижней панели — отступ под «полоску» iPhone, чтобы низ не прятался. */}
             <div ref={scrollRef} className={`h-full overflow-y-auto overscroll-contain ${bottom ? '' : 'pb-safe'}`}>
               {children(close)}
             </div>
-            {/* «Ручка» поверх шапки — подсказка, что шторку можно смахнуть. */}
             {!wide && (
               <div className="pointer-events-none absolute inset-x-0 top-1.5 flex justify-center">
                 <div className="h-[5px] w-9 rounded-[3px] bg-cell-idle" />

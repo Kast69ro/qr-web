@@ -1,9 +1,5 @@
 import { useLayoutEffect, useRef, useState } from 'react';
 
-/**
- * Аналог `FittedBox(fit: BoxFit.scaleDown)`: если содержимое не влезает
- * по ширине — уменьшается целиком, а не переносится и не обрезается.
- */
 export function FitText({ children, align = 'left', className = '' }) {
   const outer = useRef(null);
   const inner = useRef(null);
@@ -37,7 +33,8 @@ export function FitText({ children, align = 'left', className = '' }) {
     >
       <div
         ref={inner}
-        className="shrink-0 whitespace-nowrap"
+        // self-start: иначе блок растягивается по высоте обёртки, и замер высоты уходит в ноль.
+        className="shrink-0 self-start whitespace-nowrap"
         style={scale < 1 ? { transform: `scale(${scale})`, transformOrigin: origin } : undefined}
       >
         {children}

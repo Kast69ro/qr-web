@@ -4,10 +4,6 @@ import { Spinner } from './Spinner';
 const trigger = 70;
 const maxPull = 120;
 
-/**
- * Аналог RefreshIndicator: «потянуть вниз, чтобы обновить» на тач-экранах.
- * Сам является прокручиваемым контейнером.
- */
 export const PullToRefresh = forwardRef(function PullToRefresh({ onRefresh, children, className = '' }, outerRef) {
   const ref = useRef(null);
   useImperativeHandle(outerRef, () => ref.current);

@@ -1,10 +1,6 @@
 import { useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-/**
- * `context.pop()`: шаг назад по истории. Если страницу открыли по прямой
- * ссылке (истории внутри приложения нет) — на `fallback`.
- */
 export function useBack(fallback) {
   const navigate = useNavigate();
   return useCallback(() => {

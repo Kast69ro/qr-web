@@ -3,6 +3,7 @@ import { ApiPaths } from '../../core/api/apiPaths';
 import { parseResponse } from '../../core/api/apiError';
 import { formatIsoDate } from '../../core/utils/format';
 import { paymentFromJson } from '../payment/payment';
+import { filterQuery } from '../qr/qrDomain';
 import { HistoryFeed, isSingleDay } from './historyDomain';
 
 const int = (v) => {
@@ -12,16 +13,15 @@ const int = (v) => {
 };
 
 export const historyRepository = {
-  /** Страница истории от новых к старым. `range` == `null` — за всё время. */
-  async getPage({ offset, limit = ApiPaths.historyPageSize, range = null }) {
+  async getPage({ offset, limit = ApiPaths.historyPageSize, range = null, qrIds = null }) {
     const query = {};
-    // Один день — `date`, период — `from` и `to` (включительно).
     if (range && isSingleDay(range)) {
       query.date = formatIsoDate(range.from);
     } else if (range) {
       query.from = formatIsoDate(range.from);
       query.to = formatIsoDate(range.to);
     }
+    query.qr_id = filterQuery(qrIds);
     query.limit = limit;
     query.offset = offset;
     const json = await apiClient.get(ApiPaths.history, query);
@@ -36,9 +36,8 @@ export const historyRepository = {
     });
   },
 
-  /** Все операции периода — для отчёта. Страницами по максимуму бэка. */
-  async getAll(range) {
-    const page = (offset) => this.getPage({ offset, limit: ApiPaths.historyMaxPageSize, range });
+  async getAll(range, qrIds = null) {
+    const page = (offset) => this.getPage({ offset, limit: ApiPaths.historyMaxPageSize, range, qrIds });
     let feed = HistoryFeed.first(await page(0));
     while (feed.hasMore) {
       const next = await page(feed.nextOffset);

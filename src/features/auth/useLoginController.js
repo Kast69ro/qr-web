@@ -16,10 +16,6 @@ import { useSession } from './SessionContext';
 export const otpLength = 6;
 export const otpResendCooldown = 60;
 
-/**
- * Шаги входа по порядку: номер → код из SMS → пароль. Пароль задают после
- * подтверждения SMS, токены бэк выдаёт только на set-password.
- */
 export const LoginStep = Object.freeze({
   phone: 'phone',
   code: 'code',
@@ -34,31 +30,22 @@ const initial = {
   code: '',
   newPassword: '',
   repeatPassword: '',
-  /** Из verify: `false` — первый вход, `true` — сброс пароля. */
   passwordSet: false,
   loading: false,
   failure: null,
-  /** Сколько секунд до «Отправить код снова». */
   resendIn: 0,
-  /** Срок действия кода из ответа бэка, сек. */
   codeExpiresIn: 300,
 };
 
-/** Новый пароль подходит под политику бэка. */
 export const passwordLengthOk = (p) => p.length >= passwordMinLength && p.length <= passwordMaxLength;
 
 const asApi = (e) => (e instanceof ApiException ? e : new ApiException(ApiErrorKind.badResponse));
 
-/**
- * Вход по SMS с установкой пароля. Тексты ошибок — `loginFailureText`.
- * `initialPhone` — 9 цифр, если номер уже известен («Забыли пароль?»).
- */
 export function useLoginController(initialPhone = null) {
   const [state, setState, get] = useLatestState(() => ({ ...initial, phone: initialPhone ?? '' }));
   const { signedIn } = useSession();
   const mounted = useMounted();
   const timer = useRef(null);
-  /** `{ token, expiresAt, session }` после verify. Только в памяти. */
   const setup = useRef(null);
 
   useEffect(() => () => clearInterval(timer.current), []);
@@ -76,7 +63,6 @@ export function useLoginController(initialPhone = null) {
     [get, setState],
   );
 
-  /** Вернуться к шагу `step` (раньше текущего). Во время запроса — нельзя. */
   const backTo = useCallback(
     (step, failure = null) => {
       const s = get();
@@ -110,7 +96,6 @@ export function useLoginController(initialPhone = null) {
       if (!mounted.current) return;
       const failure = failureFromRequest(asApi(e));
       setState((cur) => ({ ...cur, loading: false, failure }));
-      // Бэк сказал, сколько ждать, — кнопка «Отправить снова» ждёт столько же.
       if (failure.retryAfter && get().step === LoginStep.code) startResendTimer(failure.retryAfter);
     }
   }, [get, setState, mounted, startResendTimer]);
@@ -148,7 +133,6 @@ export function useLoginController(initialPhone = null) {
     const s = get();
     if (s.loading || !passwordLengthOk(s.newPassword) || s.newPassword !== s.repeatPassword) return;
     const st = setup.current;
-    // Setup-токен истёк — начинать заново с кода.
     if (!st || Date.now() >= st.expiresAt) {
       backTo(LoginStep.phone, { kind: LoginFailureKind.setupExpired });
       return;
@@ -169,7 +153,6 @@ export function useLoginController(initialPhone = null) {
     }
   }, [get, setState, mounted, signedIn, backTo]);
 
-  /** Нажатие цифры или «стереть» (`null`) — в номере или в SMS-коде. */
   const key = useCallback(
     (digit) => {
       const s = get();
@@ -199,12 +182,10 @@ export function useLoginController(initialPhone = null) {
     [get, setState, mounted, verifyOtp],
   );
 
-  /** Ввод в поле пароля: `newPassword` или `repeatPassword`. */
   const edit = useCallback(
     (field, value) => {
       const s = get();
       if (s.loading) return;
-      // Правка пароля снимает «пароль не подходит».
       setState({ ...s, [field]: value, failure: null });
     },
     [get, setState],

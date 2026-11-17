@@ -1,9 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-/**
- * `useState`, у которого всегда можно прочитать свежее значение (`get()`)
- * из таймеров и async-кода — аналог `state` в Riverpod-контроллере.
- */
 export function useLatestState(initial) {
   const [state, setStateRaw] = useState(initial);
   const ref = useRef(state);
@@ -15,7 +11,6 @@ export function useLatestState(initial) {
   return [state, set, get];
 }
 
-/** `ref.mounted` из Riverpod: компонент ещё на экране. */
 export function useMounted() {
   const mounted = useRef(true);
   useEffect(() => {

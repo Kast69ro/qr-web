@@ -1,5 +1,4 @@
 import { useCallback, useState } from 'react';
-import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { Routes } from '../../app/routes';
 import { apiErrorText } from '../../core/api/apiErrorText';
@@ -15,7 +14,9 @@ import { useToast } from '../../core/widgets/Toast';
 import { useSession } from '../auth/SessionContext';
 import { PaymentStatus, paymentToState, statusStyle } from '../payment/payment';
 import { StatusIcon } from '../payment/PaymentRow';
-import { DateRangePicker } from './DateRangePicker';
+import { filterDescription, qrTitle } from '../qr/qrDomain';
+import { QrPicker } from '../qr/QrPicker';
+import { useQrDirectory, useQrFilter } from '../qr/QrDirectory';
 import {
   customPeriod,
   formatRangeShort,
@@ -25,57 +26,35 @@ import {
   period as periodOf,
   PeriodKind,
   periodAll,
-  periodKinds,
   periodRange,
   rangeDays,
   samePeriod,
 } from './historyDomain';
 import { historyRepository } from './historyRepository';
+import { FilterBar, PeriodChips } from './PeriodChips';
 import { useHistory } from './useHistory';
+import { useRangePicker } from './useRangePicker';
 
-/**
- * История операций. Прототип: `POS Terminal.dc.html`, стр. 77–111.
- * Сверх прототипа — фильтр по периоду и отчёт в PDF.
- * Телефон — карточки по дням, как в прототипе. ПК и планшет — таблица
- * (время, банк / плательщик, статус, сумма), дни — строками-разделителями.
- */
 export default function HistoryScreen({ scrollRef }) {
   const navigate = useNavigate();
   const wide = useWide();
   const toast = useToast();
   const { current } = useSession();
+  const { dir } = useQrDirectory();
+  const [qrFilter, setQrFilter] = useQrFilter('history');
   const [period, setPeriod] = useState(periodAll);
-  const [history, refresh, loadMore] = useHistory(period);
+  const [history, refresh, loadMore] = useHistory(period, qrFilter);
   const [exporting, setExporting] = useState(false);
-  const [picker, setPicker] = useState(null);
-  /** Тот же период — без перезагрузки (как Notifier с равным state). */
+  const { pickRange, element: pickerElement } = useRangePicker();
+  const multiQr = (dir?.qrs.length ?? 0) > 1;
+  const qrLabelOf = (p) => (multiQr && p.qrId ? qrTitle(dir?.qrById.get(p.qrId), dir) : null);
   const select = useCallback((next) => setPeriod((p) => (samePeriod(p, next) ? p : next)), []);
-
-  /** Календарь «с — по». `null` — закрыли без выбора. */
-  const pickRange = useCallback(
-    (title, initial) =>
-      new Promise((resolve) => {
-        // Открываем всегда с готовым периодом (по умолчанию — этот месяц).
-        const start = initial ?? periodRange(periodOf(PeriodKind.month), new Date());
-        setPicker({ title, initial: start, resolve });
-      }),
-    [],
-  );
-
-  const closePicker = useCallback(
-    (range) => {
-      picker?.resolve(range);
-      setPicker(null);
-    },
-    [picker],
-  );
 
   const pickCustom = async () => {
     const range = await pickRange(l.periodPickTitle, periodRange(period, new Date()));
     if (range) select(customPeriod(range));
   };
 
-  /** За «Всё время» отчёт не делаем — сначала спросим период. */
   const exportReport = async () => {
     if (exporting) return;
     let range = periodRange(period, new Date());
@@ -90,17 +69,18 @@ export default function HistoryScreen({ scrollRef }) {
     }
     setExporting(true);
     try {
-      const payments = await historyRepository.getAll(range);
+      const payments = await historyRepository.getAll(range, qrFilter);
       const session = current().session;
       const report = historyReport({
+        qrDescription: multiQr ? filterDescription(qrFilter, dir) : null,
+        qrLabelOf: multiQr ? qrLabelOf : null,
         range,
         payments,
-        storeName: session?.storeName ?? '',
+        storeName: dir?.merchant?.name || session?.storeName || '',
         terminalName: session?.terminalName ?? '',
         terminalId: session?.terminalId ?? '',
         generatedAt: new Date(),
       });
-      // PDF-библиотеки грузятся только когда нужны.
       const { buildReportPdf, reportFileName } = await import('./reportPdf');
       const pdf = await buildReportPdf(report);
       await sharePdf(pdf, reportFileName(range));
@@ -117,17 +97,15 @@ export default function HistoryScreen({ scrollRef }) {
   const now = new Date();
 
   const open = (p) => navigate(Routes.payment, { state: { payment: paymentToState(p) } });
-  const emptyText = period.kind !== PeriodKind.all ? l.historyEmptyPeriod : wide ? l.historyEmptyWide : l.historyEmpty;
+  const emptyText = period.kind !== PeriodKind.all || qrFilter ? l.historyEmptyPeriod : wide ? l.historyEmptyWide : l.historyEmpty;
 
   return (
     <div className="pt-safe relative flex h-full flex-col bg-bg">
-      {/* Телефон: справа меньше — у кнопки своя зона нажатия. */}
       <div className="mx-auto w-full max-w-[1200px] pt-2.5 pr-2.5 pl-[22px] md:px-8 md:pt-8 lg:px-10">
         <PageHeader
           title={l.tabHistory}
           actions={
             <>
-              {/* ПК: «потянуть вниз» мышью нельзя — обновление кнопкой. */}
               <div className="hidden md:block">
                 <ToolbarButton icon={<RefreshIcon size={20} />} label={l.refresh} busy={history.loading} onTap={refresh} />
               </div>
@@ -143,12 +121,14 @@ export default function HistoryScreen({ scrollRef }) {
         />
       </div>
       <div className="h-1 md:h-5" />
-      <PeriodChips
-        selected={period.kind}
-        customLabel={period.custom ? formatRangeShort(period.custom, now) : null}
-        onSelect={(kind) => select(periodOf(kind))}
-        onCustom={pickCustom}
-      />
+      <FilterBar leading={<QrPicker value={qrFilter} onChange={setQrFilter} />}>
+        <PeriodChips
+          selected={period.kind}
+          customLabel={period.custom ? formatRangeShort(period.custom, now) : null}
+          onSelect={(kind) => select(periodOf(kind))}
+          onCustom={pickCustom}
+        />
+      </FilterBar>
       <div className="h-1.5 md:h-4" />
       <PullToRefresh onRefresh={refresh} ref={scrollRef}>
         <div className={`${pageClass} pt-1.5 pb-5 md:pt-1 md:pb-10`}>
@@ -166,7 +146,7 @@ export default function HistoryScreen({ scrollRef }) {
           ) : null}
           {groups.length > 0 &&
             (wide ? (
-              <HistoryTable groups={groups} now={now} onOpen={open} />
+              <HistoryTable groups={groups} now={now} onOpen={open} qrLabelOf={multiQr ? qrLabelOf : null} />
             ) : (
               groups.map((g) => (
                 <DayGroupView
@@ -175,6 +155,7 @@ export default function HistoryScreen({ scrollRef }) {
                   total={formatMoney(g.successAmount)}
                   group={g}
                   onOpen={open}
+                  qrLabelOf={qrLabelOf}
                 />
               ))
             ))}
@@ -200,22 +181,13 @@ export default function HistoryScreen({ scrollRef }) {
           )}
         </div>
       </PullToRefresh>
-      {/* Поверх всего экрана, включая нижние вкладки и боковое меню. */}
-      {picker &&
-        createPortal(
-          <DateRangePicker title={picker.title} initial={picker.initial} onClose={closePicker} />,
-          document.getElementById('app-frame') ?? document.body,
-        )}
+      {pickerElement}
     </div>
   );
 }
 
-/**
- * Таблица операций (ПК и планшет). Строка открывает карточку операции
- * (мышью или Enter / пробел с клавиатуры). Дни — строками-разделителями
- * с суммой оплаченных, как заголовки дней на телефоне.
- */
-function HistoryTable({ groups, now, onOpen }) {
+function HistoryTable({ groups, now, onOpen, qrLabelOf }) {
+  const withQr = !!qrLabelOf;
   const th = 'py-3 text-left text-[12px] font-semibold tracking-[0.36px] text-fg3 uppercase';
   return (
     <Card className="overflow-hidden">
@@ -223,6 +195,7 @@ function HistoryTable({ groups, now, onOpen }) {
         <colgroup>
           <col className="w-[96px] lg:w-[112px]" />
           <col />
+          {withQr && <col className="w-[170px] lg:w-[220px]" />}
           <col className="w-[148px] lg:w-[184px]" />
           <col className="w-[148px] lg:w-[176px]" />
         </colgroup>
@@ -234,6 +207,11 @@ function HistoryTable({ groups, now, onOpen }) {
             <th scope="col" className={th}>
               {l.reportSender}
             </th>
+            {withQr && (
+              <th scope="col" className={th}>
+                {l.historyQrColumn}
+              </th>
+            )}
             <th scope="col" className={th}>
               {l.receiptStatus}
             </th>
@@ -245,13 +223,13 @@ function HistoryTable({ groups, now, onOpen }) {
         {groups.map((g) => (
           <tbody key={g.day ? g.day.getTime() : 'none'}>
             <tr className="border-b border-line-list bg-bg/60">
-              <th scope="colgroup" colSpan={3} className="py-2.5 pl-5 text-left text-[14px] font-semibold text-fg">
+              <th scope="colgroup" colSpan={withQr ? 4 : 3} className="py-2.5 pl-5 text-left text-[14px] font-semibold text-fg">
                 {g.day ? formatDayLabel(g.day, now) : l.historyNoDate}
               </th>
               <td className="py-2.5 pr-5 text-right text-[13px] text-fg2 tabular-nums">{formatMoney(g.successAmount)}</td>
             </tr>
             {g.payments.map((p, i) => (
-              <TableRow key={i} payment={p} onOpen={() => onOpen(p)} />
+              <TableRow key={p.id ?? i} payment={p} qrLabel={qrLabelOf?.(p) ?? null} withQr={withQr} onOpen={() => onOpen(p)} />
             ))}
           </tbody>
         ))}
@@ -260,7 +238,7 @@ function HistoryTable({ groups, now, onOpen }) {
   );
 }
 
-function TableRow({ payment: p, onOpen }) {
+function TableRow({ payment: p, onOpen, qrLabel, withQr }) {
   const status = statusStyle(p.status);
   const success = p.status === PaymentStatus.success;
   const time = p.createdAt ? formatTime(p.createdAt) : '—';
@@ -283,11 +261,11 @@ function TableRow({ payment: p, onOpen }) {
           <StatusIcon status={p.status} size={32} />
           <div className="min-w-0">
             <div className="truncate text-[15px] font-medium text-fg">{p.sender}</div>
-            {/* Клиент ActivBank: в sender — имя, поясняем. */}
             {p.isInternal && <div className="mt-0.5 truncate text-[12px] text-fg2">{l.historyInternalTag}</div>}
           </div>
         </div>
       </td>
+      {withQr && <td className="truncate py-3 pr-4 text-[14px] text-fg2">{qrLabel ?? '—'}</td>}
       <td className="py-3 pr-4">
         <StatusChip style={status} />
       </td>
@@ -302,7 +280,7 @@ function TableRow({ payment: p, onOpen }) {
   );
 }
 
-function DayGroupView({ label, total, group, onOpen }) {
+function DayGroupView({ label, total, group, onOpen, qrLabelOf }) {
   return (
     <section className="pb-[18px]">
       <div className="flex items-baseline px-0.5 pt-1.5 pb-0.5">
@@ -311,18 +289,14 @@ function DayGroupView({ label, total, group, onOpen }) {
       </div>
       {group.payments.map((p, i) => (
         <div key={i} className="mt-2">
-          <HistoryRow payment={p} onTap={() => onOpen(p)} />
+          <HistoryRow payment={p} qrLabel={qrLabelOf(p)} onTap={() => onOpen(p)} />
         </div>
       ))}
     </section>
   );
 }
 
-/**
- * Строка операции в истории. Прототип: стр. 94–103.
- * Слева полоса 3 px цвета статуса, рамка 1 px, скругление 12.
- */
-function HistoryRow({ payment: p, onTap }) {
+function HistoryRow({ payment: p, onTap, qrLabel }) {
   const status = statusStyle(p.status);
   const success = p.status === PaymentStatus.success;
   const time = p.createdAt ? formatTime(p.createdAt) : '';
@@ -334,7 +308,6 @@ function HistoryRow({ payment: p, onTap }) {
         onClick={onTap}
         className="my-px mr-px min-w-0 flex-1 rounded-r-[11px] bg-surface p-3.5 text-left hover:bg-hover active:bg-surface-pressed"
       >
-        {/* flex-wrap: на узком экране с крупным шрифтом чип уходит на новую строку. */}
         <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5">
           <span className={`text-[20px] font-semibold tracking-[-0.2px] tabular-nums ${success ? 'text-fg' : 'text-fg2'}`}>
             {formatMoney(p.amount)}
@@ -345,51 +318,9 @@ function HistoryRow({ payment: p, onTap }) {
           <span className="min-w-0 flex-1 truncate text-[13px] text-fg2 tabular-nums">{p.sender}</span>
           <span className="ml-3 text-[13px] text-fg2 tabular-nums">{time}</span>
         </div>
-        {/* Клиент ActivBank: в sender — имя, поясняем. */}
         {p.isInternal && <div className="mt-1 truncate text-[13px] text-fg2 tabular-nums">{l.historyInternalTag}</div>}
+        {qrLabel && <div className="mt-1 truncate text-[13px] text-fg3">{qrLabel}</div>}
       </button>
-    </div>
-  );
-}
-
-const chipLabels = {
-  [PeriodKind.all]: l.periodAll,
-  [PeriodKind.today]: l.periodToday,
-  [PeriodKind.yesterday]: l.periodYesterday,
-  [PeriodKind.week]: l.periodWeek,
-  [PeriodKind.month]: l.periodMonth,
-  [PeriodKind.lastMonth]: l.periodLastMonth,
-};
-
-/**
- * Ряд чипов периода под заголовком. Выбранный — красноватый.
- * Телефон — листается вбок; ПК — переносится на новую строку.
- */
-function PeriodChips({ selected, customLabel, onSelect, onCustom }) {
-  return (
-    <div className="no-scrollbar shrink-0 overflow-x-auto md:overflow-visible" role="radiogroup" aria-label={l.periodPickTitle}>
-      <div className="mx-auto flex w-max gap-2 px-[22px] md:w-full md:max-w-[1200px] md:flex-wrap md:px-8 lg:px-10">
-        {periodKinds.map((k) => {
-          const isSel = k === selected;
-          const label = k === PeriodKind.custom ? (customLabel ?? l.periodCustom) : chipLabels[k];
-          return (
-            <button
-              key={k}
-              type="button"
-              role="radio"
-              aria-checked={isSel}
-              onClick={k === PeriodKind.custom ? onCustom : () => onSelect(k)}
-              className={`flex min-h-11 shrink-0 items-center rounded-full border px-4 text-[14px] whitespace-nowrap ${
-                isSel
-                  ? 'border-accent bg-tab-active font-semibold text-accent'
-                  : 'border-line-list bg-surface font-medium text-fg hover:bg-hover active:bg-surface-pressed'
-              }`}
-            >
-              {label}
-            </button>
-          );
-        })}
-      </div>
     </div>
   );
 }

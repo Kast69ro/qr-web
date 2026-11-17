@@ -6,11 +6,23 @@
 
 Стек: React 19 + Vite 6 + Tailwind CSS 4, `react-router-dom`, `qrcode`, `pdf-lib` (+ `@pdf-lib/fontkit`), `@noble/hashes`.
 
+## Разделы
+
+- **Главная (дашборд):** оборот, оплаты, средний чек, отказы и возвраты за период со сравнением
+  с прошлым периодом. Ещё график по часам, дням или месяцам, «когда платят» и разбивка по точкам и QR.
+  Фильтры: период и QR. Выгрузка — «Статистика в PDF» (`src/features/dashboard/statsPdf.js`).
+- **История:** фильтр по периоду и по QR (по умолчанию все), отчёт в PDF с колонкой QR.
+- **Точки и QR:** все QR организации, сгруппированные по точкам: статус, терминал, последняя
+  оплата, оборот за период. Отсюда открываются QR на весь экран, история и статистика по кассе или точке.
+- **Настройки:** данные организации, тема, выход.
+
+Что для этого нужно от бэка, описано в [`BACKEND_REQUIREMENTS.md`](BACKEND_REQUIREMENTS.md).
+
 ## Запуск
 
 ```sh
 npm install
-npm run dev          # http://localhost:5173, бэк — из .env
+npm run dev          # http://localhost:5173, бэк — из .env через прокси Vite (/web → VITE_API_BASE_URL)
 VITE_API_BASE_URL=https://api.example.tj npm run build   # сборка в dist/ с адресом бэка
 npm run preview      # проверить сборку локально
 ```
@@ -26,20 +38,24 @@ npm run preview      # проверить сборку локально
 вшивается в сборку, поэтому для теста и прода — разные сборки. Не задан — запросы не уходят,
 на экране «В этой сборке не задан адрес сервера».
 
-Что нужно от бэка (CORS), иначе браузер заблокирует ответы:
+В `npm run dev` браузер ходит на `localhost:5173/web/...`, а Vite пересылает запросы на бэк
+(`vite.config.js`) — так локально не нужен CORS. Сборка (`npm run build`) ходит на бэк напрямую.
+
+Что нужно от бэка (CORS) для собранного сайта, иначе браузер заблокирует ответы:
 
 - `Access-Control-Allow-Origin` — адрес, с которого открыт сайт (`http://localhost:5173`
   для разработки, домен сайта в проде);
-- ответ на preflight `OPTIONS` для `POST /pos/otp/*` (тело — JSON):
+- ответ на preflight `OPTIONS` для `/web/*`:
   `Access-Control-Allow-Methods: GET, POST, OPTIONS`,
-  `Access-Control-Allow-Headers: Content-Type, Accept`.
+  `Access-Control-Allow-Headers: Content-Type, Accept, Authorization`.
 
 Сайт по `https` не может ходить на бэк по `http` (браузер блокирует mixed content) —
 в проде бэк тоже должен быть на `https`.
 
-Ручки, параметры и разбор ответов — те же, что во Flutter (`/pos/otp/request`, `/pos/otp/verify`,
-`/pos/terminal`, `/pos/summary`, `/pos/history`), GET-запросы получают `?phone=+992…`
-(см. `src/core/api/apiClient.js` — при переходе на токены меняется только он).
+Сайт ходит только на `/web/*` (вход: `/web/login`, `/web/otp/*`, `/web/set-password`,
+`/web/auth/*`; данные: `/web/stores`, `/web/stats`, `/web/history`) с `Authorization: Bearer`.
+Мобильное приложение — на `/mobi/*`, токен сайта там даёт 401. Пути — `src/core/api/apiPaths.js`,
+контракт — `BACKEND_REQUIREMENTS.md`.
 
 ## Деплой (nginx)
 

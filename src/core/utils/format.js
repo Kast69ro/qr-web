@@ -1,4 +1,3 @@
-// Форматтеры — один в один из core/utils Flutter-версии.
 
 const months = [
   'января',
@@ -17,20 +16,15 @@ const months = [
 
 const two = (v) => String(v).padStart(2, '0');
 
-/** `14:05` */
 export const formatTime = (d) => `${two(d.getHours())}:${two(d.getMinutes())}`;
 
-/** `08.09` — дата в реквизитах операции. */
 export const formatDayMonth = (d) => `${two(d.getDate())}.${two(d.getMonth() + 1)}`;
 
-/** `08.09.2026` — дата в чеке. */
 export const formatFullDate = (d) => `${formatDayMonth(d)}.${String(d.getFullYear()).padStart(4, '0')}`;
 
-/** `2026-09-08` — параметр `date` для API. */
 export const formatIsoDate = (d) =>
   `${String(d.getFullYear()).padStart(4, '0')}-${two(d.getMonth() + 1)}-${two(d.getDate())}`;
 
-/** Ключ дня для группировки (полночь местного времени). */
 export const dayKey = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
 
 /** Разница в календарных днях без влияния летнего времени. */
@@ -40,7 +34,6 @@ export const daysBetween = (a, b) =>
       86400000,
   );
 
-/** Заголовок группы в истории: «Сегодня», «Вчера» или «5 мая». */
 export function formatDayLabel(d, now) {
   const diff = daysBetween(d, now);
   if (diff === 0) return 'Сегодня';
@@ -48,10 +41,6 @@ export function formatDayLabel(d, now) {
   return `${d.getDate()} ${months[d.getMonth()]}`;
 }
 
-/**
- * Дата с бэка. Без часового пояса — это местное время банка
- * (как `DateTime.tryParse` во Flutter). Битая — `null`.
- */
 export function parseDateTime(raw) {
   if (typeof raw !== 'string') return null;
   const m = raw
@@ -80,11 +69,7 @@ function normalizeTz(tz) {
   return `${digits.slice(0, 3)}:${(digits.slice(3) || '00').padEnd(2, '0')}`;
 }
 
-/**
- * Сумма в TJS для UI: `12 345,60`. Валюту не пишем.
- * Тысячи — неразрывным пробелом, чтобы сумма не переносилась.
- * Округляем сразу до дирамов: иначе 1.999 превращается в «1,100».
- */
+// Округляем сразу до дирамов, иначе 1.999 → «1,100». Тысячи — неразрывным пробелом.
 export function formatMoney(value) {
   const cents = Math.round(Number(value) * 100);
   const sign = cents < 0 ? '−' : '';
@@ -99,26 +84,21 @@ export function formatMoney(value) {
   return `${sign}${grouped},${fraction}`;
 }
 
-/** Номер без кода страны — 9 цифр. */
 export const phoneDigits = 9;
 export const phoneCountryCode = '+992';
 
-/** Маска поля ввода: `93 123 45 67`, недостающие цифры — точки. */
 export function formatPhoneMask(digits) {
   const d = digits.padEnd(phoneDigits, '·');
   return `${d.slice(0, 2)} ${d.slice(2, 5)} ${d.slice(5, 7)} ${d.slice(7, 9)}`;
 }
 
-/** Скрытый номер для подписей: `+992 93 ··· 67`. */
 export function formatPhoneHidden(digits) {
   const d = digits.padEnd(phoneDigits, '·');
   return `${phoneCountryCode} ${d.slice(0, 2)} ··· ${d.slice(7, 9)}`;
 }
 
-/** Полный номер для API: `+992931234567`. */
 export const fullPhone = (digits) => `${phoneCountryCode}${digits}`;
 
-/** Русское склонение: `plural(5, 'платёж', 'платежа', 'платежей')` → «5 платежей». */
 export function plural(n, one, few, many) {
   const v = Math.abs(n);
   const d10 = v % 10;
@@ -132,3 +112,11 @@ export function plural(n, one, few, many) {
 }
 
 export const paymentsCount = (n) => plural(n, 'платёж', 'платежа', 'платежей');
+
+export function formatDateTimeShort(d, now = new Date()) {
+  const diff = daysBetween(d, now);
+  const time = formatTime(d);
+  if (diff === 0) return `сегодня, ${time}`;
+  if (diff === 1) return `вчера, ${time}`;
+  return d.getFullYear() === now.getFullYear() ? `${formatDayMonth(d)}, ${time}` : `${formatFullDate(d)}, ${time}`;
+}

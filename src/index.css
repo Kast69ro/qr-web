@@ -1,9 +1,5 @@
 @import 'tailwindcss';
 
-/*
- * Шрифты из бренд-бука: Montserrat — весь текст, Lato — только блок TJ QR.
- * Пока Montserrat не загрузился — Arial (запасной шрифт по бренд-буку).
- */
 @font-face {
   font-family: 'Montserrat';
   src: url('./assets/fonts/Montserrat-Regular.ttf') format('truetype');
@@ -41,10 +37,6 @@
   font-display: swap;
 }
 
-/*
- * Палитра — один в один из app_colors.dart (Flutter).
- * В разметке — только токены: `bg-surface`, `text-fg2`, `border-line`…
- */
 @theme inline {
   --font-sans: 'Montserrat', Arial, sans-serif;
   --font-lato: 'Lato', 'Montserrat', Arial, sans-serif;
@@ -141,13 +133,11 @@
   --c-snack: #322f33;
   --c-snack-fg: #f5eff4;
   --c-range: #fde3e2;
-  /* Только веб: наведение мышью и тени (на ПК). */
   --c-hover: #f5f5f2;
   --c-shadow-card: 0 1px 2px rgba(22, 24, 26, 0.04);
   --c-shadow-pop: 0 24px 64px -16px rgba(22, 24, 26, 0.28);
 }
 
-/* Тёмная — по системным цветам Apple (HIG, Dark Mode), акцент — бренд. */
 [data-theme='dark'] {
   color-scheme: dark;
   --c-background: #000000;
@@ -234,7 +224,6 @@
   }
 }
 
-/* Тонкие полосы прокрутки на ПК (мышь), на телефоне — системные. */
 @media (pointer: fine) {
   * {
     scrollbar-width: thin;
@@ -242,12 +231,6 @@
   }
 }
 
-/*
- * Свои утилиты — через @utility: они в слое utilities, поэтому работают
- * с вариантами (`md:pt-0` перекрывает `pt-safe`, есть `md:anim-modal`).
- */
-
-/* Скролл без полосы у ряда чипов периода. */
 @utility no-scrollbar {
   scrollbar-width: none;
   &::-webkit-scrollbar {
@@ -262,7 +245,6 @@
   padding-bottom: env(safe-area-inset-bottom);
 }
 
-/* Тени: в светлой теме — мягкие, в тёмной карточки отделяет цвет фона. */
 @utility elev-card {
   box-shadow: var(--c-shadow-card);
 }
@@ -291,7 +273,6 @@
     transform: translateY(0);
   }
 }
-/* Панель операции справа на ПК. */
 @keyframes sheet-left {
   from {
     transform: translateX(100%);
@@ -310,7 +291,6 @@
     transform: scale(1);
   }
 }
-/* Окно по центру на ПК (календарь, смена кода). */
 @keyframes modal-in {
   from {
     opacity: 0;
@@ -344,7 +324,6 @@
   animation: snack-in 200ms ease-out both;
 }
 
-/* «Уменьшить движение» в системе — шторки и окна без выезда (спиннер крутится). */
 @media (prefers-reduced-motion: reduce) {
   [role='dialog'],
   [role='alertdialog'],

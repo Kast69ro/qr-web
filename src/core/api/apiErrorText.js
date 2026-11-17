@@ -1,7 +1,6 @@
 import { l } from '../i18n/ru';
 import { ApiErrorKind, ApiException } from './apiError';
 
-/** Текст ошибки для экранов данных. `detail` с бэка — в приоритете. */
 export function apiErrorText(error) {
   if (!(error instanceof ApiException)) return l.errorUnknown;
   switch (error.kind) {

@@ -24,7 +24,6 @@ export const pdfColors = Object.freeze({
 
 let fontBytes = null;
 
-/** Файлы Montserrat — тот же шрифт, что в интерфейсе. Читаются один раз. */
 function loadFontBytes() {
   fontBytes ??= Promise.all(
     [regularUrl, mediumUrl, semiBoldUrl, boldUrl].map((u) =>
@@ -40,7 +39,6 @@ function loadFontBytes() {
   return fontBytes;
 }
 
-/** Новый документ с начертаниями Montserrat. В файл попадают только использованные глифы. */
 export async function createPdf({ title, creator }) {
   const [regular, medium, semiBold, bold] = await loadFontBytes();
   const doc = await PDFDocument.create();
@@ -62,10 +60,8 @@ export function color(hex) {
   return rgb(((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255);
 }
 
-/** Высота строки текста (как у pdf/Flutter: ascender − descender). */
 export const lineHeight = (font, size) => font.heightAtSize(size);
 
-/** Перенос по словам в пределах `maxWidth`; слишком длинное слово режется. */
 export function wrap(text, font, size, maxWidth) {
   const width = (s) => font.widthOfTextAtSize(s, size);
   const lines = [];
@@ -98,17 +94,12 @@ export function wrap(text, font, size, maxWidth) {
   return lines;
 }
 
-/**
- * Рисование в координатах «сверху вниз» (как в вёрстке), а не от нижнего
- * края страницы, как принято в PDF.
- */
 export class Canvas {
   constructor(page) {
     this.page = page;
     this.height = page.getHeight();
   }
 
-  /** Текст, `top` — верх строки. */
   text(str, { x, top, font, size, hex, maxWidth = null, align = 'left' }) {
     const ascent = font.heightAtSize(size, { descender: false });
     const lh = lineHeight(font, size);
@@ -134,7 +125,6 @@ export class Canvas {
     const path =
       `M ${r} 0 H ${w - r} A ${r} ${r} 0 0 1 ${w} ${r} V ${h - r} A ${r} ${r} 0 0 1 ${w - r} ${h} ` +
       `H ${r} A ${r} ${r} 0 0 1 0 ${h - r} V ${r} A ${r} ${r} 0 0 1 ${r} 0 Z`;
-    // Обводка по центру линии — сдвигаем внутрь, как Border.all во Flutter.
     const inset = stroke ? strokeWidth / 2 : 0;
     this.page.drawSvgPath(
       inset

@@ -5,10 +5,6 @@ const themeKey = 'abqr.theme_mode.v1';
 
 export const ThemeMode = Object.freeze({ system: 'system', light: 'light', dark: 'dark' });
 
-/**
- * Выбранная тема: системная, светлая или тёмная. По умолчанию — светлая.
- * Не стирается при выходе — это настройка устройства, а не сессии.
- */
 function readMode() {
   try {
     const v = localStorage.getItem(themeKey);
@@ -41,7 +37,6 @@ export function ThemeProvider({ children }) {
     document.querySelector('meta[name="theme-color"]')?.setAttribute('content', dark ? '#000000' : '#F4F4F2');
   }, [dark]);
 
-  /** Тема меняется сразу, сохранение — следом. */
   const select = useCallback((next) => {
     setMode(next);
     try {

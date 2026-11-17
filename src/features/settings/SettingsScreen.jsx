@@ -5,16 +5,12 @@ import { useConfirmLogout } from '../../core/widgets/Dialog';
 import { FitText } from '../../core/widgets/FitText';
 import { ChevronRightIcon, LogoutIcon } from '../../core/widgets/Icons';
 import { useSession } from '../auth/SessionContext';
+import { useQrDirectory } from '../qr/QrDirectory';
 import { ThemeMode, useTheme } from './ThemeContext';
 
-/**
- * Настройки: данные точки, тема, выход.
- * Раздел наравне с «Главной» и «Историей»: на телефоне — вкладка снизу
- * (и тап по логотипу на главной), на ПК — пункт бокового меню.
- * ПК: слева данные точки, справа тема и выход.
- */
 export default function SettingsScreen({ scrollRef }) {
   const { state, signOut } = useSession();
+  const { dir } = useQrDirectory();
   const theme = useTheme();
   const confirmLogout = useConfirmLogout();
   const session = state.session;
@@ -26,12 +22,21 @@ export default function SettingsScreen({ scrollRef }) {
         <div className={`${pageClass} pt-[18px] pb-6 md:pt-8 md:pb-10`}>
           <PageHeader title={l.settingsTitle} />
           <div className="mt-5 grid gap-3 md:mt-7 lg:grid-cols-2 lg:items-start lg:gap-6">
-            <InfoCard title={l.settingsPointInfo}>
-              <InfoRow label={l.settingsTerminal} value={orDash(session?.terminalName)} />
-              <InfoRow label={l.settingsStore} value={orDash(session?.storeName)} />
-              <InfoRow label={l.settingsTerminalId} value={orDash(session?.terminalId)} />
-              <InfoRow label={l.settingsPhone} value={session ? formatPhoneHidden(session.phone) : '—'} />
-            </InfoCard>
+            {dir ? (
+              <InfoCard title={l.settingsOrgInfo}>
+                <InfoRow label={l.settingsOrg} value={orDash(dir.merchant?.name || session?.storeName)} />
+                <InfoRow label={l.qrsTotalStores} value={String(dir.stores.length)} />
+                <InfoRow label={l.qrsTotalQrs} value={String(dir.qrs.length)} />
+                <InfoRow label={l.settingsPhone} value={session ? formatPhoneHidden(session.phone) : '—'} />
+              </InfoCard>
+            ) : (
+              <InfoCard title={l.settingsPointInfo}>
+                <InfoRow label={l.settingsTerminal} value={orDash(session?.terminalName)} />
+                <InfoRow label={l.settingsStore} value={orDash(session?.storeName)} />
+                <InfoRow label={l.settingsTerminalId} value={orDash(session?.terminalId)} />
+                <InfoRow label={l.settingsPhone} value={session ? formatPhoneHidden(session.phone) : '—'} />
+              </InfoCard>
+            )}
             <div className="flex min-w-0 flex-col gap-3 lg:gap-6">
               <ThemeSelector value={theme.mode} onChange={theme.select} />
               <Card className="overflow-hidden">
@@ -69,7 +74,6 @@ function ActionRow({ icon, label, onTap, className = 'text-fg', showChevron = tr
   );
 }
 
-/** Карточка «Тема»: Системная | Светлая | Тёмная. */
 function ThemeSelector({ value, onChange }) {
   const options = [
     [ThemeMode.system, l.themeSystem],
@@ -93,7 +97,6 @@ function ThemeSelector({ value, onChange }) {
                 selected ? 'bg-segment' : 'bg-transparent hover:bg-key-pressed'
               }`}
             >
-              {/* На узком экране слово уменьшается, а не переносится. */}
               <FitText align="center">
                 <span className={`text-[14px] ${selected ? 'font-semibold text-fg' : 'font-normal text-fg2'}`}>{label}</span>
               </FitText>

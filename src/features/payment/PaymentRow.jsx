@@ -12,7 +12,6 @@ const icons = {
   [PaymentStatus.unknown]: QuestionIcon,
 };
 
-/** Круглый значок статуса: ✓ — оплачено, ✕ — отклонён, часы — ожидание… */
 export function StatusIcon({ status, size = 40 }) {
   const st = statusStyle(status);
   const Icon = icons[status] ?? QuestionIcon;
@@ -27,23 +26,18 @@ export function StatusIcon({ status, size = 40 }) {
   );
 }
 
-/** «14:05», а для прошлых дней — «Вчера, 14:05» / «5 мая, 14:05». */
 function when(at, withDay, now) {
   if (!at) return '';
   const time = formatTime(at);
   return withDay && daysBetween(at, now) !== 0 ? `${formatDayLabel(at, now)}, ${time}` : time;
 }
 
-/**
- * Строка операции в списке (история на телефоне, «Последние операции» на ПК):
- * значок статуса, банк / плательщик и время, справа сумма и статус.
- * `withDay` — список не разбит по дням, поэтому у старых операций пишем день.
- */
-export function PaymentRow({ payment: p, onTap, withDay = false, now = new Date() }) {
+export function PaymentRow({ payment: p, onTap, withDay = false, now = new Date(), qrLabel = null }) {
   const st = statusStyle(p.status);
   const success = p.status === PaymentStatus.success;
-  // Клиент ActivBank: в sender — имя, поясняем.
-  const meta = [when(p.createdAt, withDay, now), p.isInternal ? l.historyInternalTag : null].filter(Boolean).join(' · ');
+  const meta = [when(p.createdAt, withDay, now), qrLabel, p.isInternal && !qrLabel ? l.historyInternalTag : null]
+    .filter(Boolean)
+    .join(' · ');
   return (
     <button
       type="button"

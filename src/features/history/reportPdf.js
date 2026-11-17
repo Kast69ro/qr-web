@@ -4,22 +4,23 @@ import { formatFullDate, formatIsoDate, formatMoney, formatTime } from '../../co
 import { statusStyle } from '../payment/payment';
 import { formatRange, isSingleDay } from './historyDomain';
 
-// A4 в пунктах и поля — как в Flutter-версии.
 const W = 595.28;
 const H = 841.89;
 const M = { left: 32, top: 32, right: 32, bottom: 24 };
 const contentW = W - M.left - M.right;
 
-// Колонки таблицы: одинаковые ширины у шапки и строк.
 const col = { no: 30, date: 70, time: 38, status: 92, amount: 84 };
-const bankW = contentW - col.no - col.date - col.time - col.status - col.amount;
+let qrW = 0;
+let bankW = 0;
+function layoutColumns(withQr) {
+  Object.assign(col, withQr ? { date: 58, time: 40, status: 84, amount: 78 } : { date: 70, time: 38, status: 92, amount: 84 });
+  qrW = withQr ? 118 : 0;
+  bankW = contentW - col.no - col.date - col.time - col.status - col.amount - qrW;
+}
 
-/**
- * Отчёт по операциям за период: A4, сколько угодно страниц.
- * Шапка с точкой и итогами, дальше таблица операций.
- */
 export async function buildReportPdf(report) {
   const { doc, f } = await createPdf({ title: l.reportTitle, creator: l.appTitle });
+  layoutColumns(!!report.qrLabelOf);
 
   const smallLh = lineHeight(f.regular, 8.5);
   const footerH = 10 + smallLh;
@@ -33,7 +34,6 @@ export async function buildReportPdf(report) {
     pages.push(page);
     c = new Canvas(page);
     y = M.top;
-    // Шапка колонок — на каждой странице, кроме первой.
     if (pages.length > 1) y += header(c, y, f);
   };
   newPage();
@@ -54,13 +54,12 @@ export async function buildReportPdf(report) {
     if (y + headerH > bottomLimit) newPage();
     else y += header(c, y, f);
     report.payments.forEach((p, i) => {
-      const r = rowLayout(i + 1, p, f);
+      const r = rowLayout(i + 1, p, f, report.qrLabelOf?.(p) ?? null);
       if (y + r.h > bottomLimit) newPage();
       y += drawRow(c, y, r, f);
     });
   }
 
-  // Подвал с номерами страниц — когда известно их число.
   pages.forEach((page, i) => {
     const pc = new Canvas(page);
     const top = H - M.bottom - smallLh;
@@ -85,8 +84,8 @@ function details(c, top, r, f) {
   const rows = [
     [l.reportPeriod, formatRange(r.range)],
     [l.settingsStore, orDash(r.storeName)],
-    [l.settingsTerminal, orDash(r.terminalName)],
-    [l.settingsTerminalId, orDash(r.terminalId)],
+    ...(r.qrDescription ? [] : [[l.settingsTerminal, orDash(r.terminalName)]]),
+    ...(r.qrDescription ? [[l.statsReportQrs, r.qrDescription]] : [[l.settingsTerminalId, orDash(r.terminalId)]]),
     [l.reportGenerated, `${formatFullDate(at)} ${formatTime(at)}`],
   ];
   const valueW = contentW - 28 - 120;
@@ -147,9 +146,9 @@ function header(c, top, f) {
   cell(l.reportNumber, col.no);
   cell(l.paymentDate, col.date);
   cell(l.paymentTime, col.time);
-  // Межбанк — банк, клиент ActivBank — имя плательщика.
   cell(l.reportSender, bankW - 8);
   x += 8;
+  if (qrW) cell(l.reportQrColumn, qrW);
   cell(l.receiptStatus, col.status);
   const amountW = font.widthOfTextAtSize(l.receiptAmount, size);
   c.text(l.receiptAmount, { x: M.left + contentW - amountW, top: top + 5, font, size, hex });
@@ -158,14 +157,16 @@ function header(c, top, f) {
   return h;
 }
 
-function rowLayout(no, p, f) {
+function rowLayout(no, p, f, qr) {
   const size = 9.5;
   const lhR = lineHeight(f.regular, size);
   const status = statusStyle(p.status);
   const bankLines = wrap(p.sender, f.regular, size, bankW - 8);
   const statusLines = wrap(status.label, f.regular, size, col.status - 10);
-  const h = 10 + Math.max(lhR, bankLines.length * lhR, statusLines.length * lhR, lineHeight(f.medium, size));
-  return { no, p, status, h };
+  const qrLines = qrW ? wrap(qr ?? '—', f.regular, 8.5, qrW - 8) : [];
+  const h =
+    10 + Math.max(lhR, bankLines.length * lhR, statusLines.length * lhR, qrLines.length * lineHeight(f.regular, 8.5), lineHeight(f.medium, size));
+  return { no, p, status, h, qr };
 }
 
 function drawRow(c, top, r, f) {
@@ -181,6 +182,10 @@ function drawRow(c, top, r, f) {
   x += col.time;
   c.text(r.p.sender, { x, top: y, font: f.regular, size, hex: C.textPrimary, maxWidth: bankW - 8 });
   x += bankW;
+  if (qrW) {
+    c.text(r.qr ?? '—', { x, top: y + 0.5, font: f.regular, size: 8.5, hex: C.textSecondary, maxWidth: qrW - 8 });
+    x += qrW;
+  }
   const lh = lineHeight(f.regular, size);
   c.circle({ cx: x + 2.5, cy: y + lh / 2, r: 2.5, fill: r.status.hex.dot });
   c.text(r.status.label, { x: x + 10, top: y, font: f.regular, size, hex: r.status.hex.fg, maxWidth: col.status - 10 });
@@ -191,6 +196,5 @@ function drawRow(c, top, r, f) {
   return r.h;
 }
 
-/** `report_2026-09-10_2026-10-10` — без кириллицы и пробелов. */
 export const reportFileName = (r) =>
   isSingleDay(r) ? `report_${formatIsoDate(r.from)}` : `report_${formatIsoDate(r.from)}_${formatIsoDate(r.to)}`;

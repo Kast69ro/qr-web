@@ -1,9 +1,5 @@
 import { SecureKeys, secureStore } from '../../core/storage/secureStore';
 
-/**
- * Вошедший терминал: `{ phone, terminalId, terminalName, storeName, terminalQR }`,
- * `phone` — 9 цифр без +992.
- */
 function sessionFromJson(json) {
   if (!json || typeof json !== 'object' || typeof json.phone !== 'string') throw new Error('bad session');
   return {
@@ -22,7 +18,6 @@ export const sessionStore = {
     try {
       return sessionFromJson(JSON.parse(raw));
     } catch {
-      // Повреждённая запись — считаем, что сессии нет.
       secureStore.delete(SecureKeys.session);
       return null;
     }
@@ -32,7 +27,6 @@ export const sessionStore = {
     secureStore.write(SecureKeys.session, JSON.stringify(session));
   },
 
-  /** Стирает сессию (номер и данные точки). */
   wipe() {
     secureStore.deleteAll();
   },

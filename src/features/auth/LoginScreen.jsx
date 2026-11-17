@@ -14,17 +14,11 @@ import { LoginStep, loginStepOrder, otpLength, passwordLengthOk, useLoginControl
 
 const stepIndex = (step) => loginStepOrder.indexOf(step);
 
-/**
- * Вход: номер → код из SMS → пароль (придумать или задать новый).
- * Кнопка «Назад» браузера возвращает на шаг назад.
- */
 export default function LoginScreen() {
-  // «Забыли пароль?» с экрана пароля — номер уже набран.
   const { state: session } = useSession();
   const [s, c] = useLoginController(session.phoneHint);
   useStepHistory(s.step, c.backTo);
 
-  // Сессия истекла — объясняем, пока человек не запросил код.
   const error = s.failure
     ? loginFailureText(s.failure)
     : session.reason === SessionReason.sessionExpired && s.step === LoginStep.phone
@@ -33,7 +27,6 @@ export default function LoginScreen() {
 
   const { label, busyLabel, ready } = buttonFor(s);
 
-  // Телефон: верх прокручивается, кнопка прижата к низу. ПК: всё в карточке.
   return (
     <AuthLayout
       footer={<PrimaryButton label={s.loading ? busyLabel : label} loading={s.loading} onPress={ready ? c.submit : null} />}
@@ -74,10 +67,6 @@ function buttonFor(s) {
   }
 }
 
-/**
- * Шаги входа ↔ история браузера: шаг вперёд — новая запись, «Назад» в
- * браузере — шаг назад, а шаг назад из кнопок экрана убирает записи.
- */
 function useStepHistory(step, backTo) {
   const navigate = useNavigate();
   const location = useLocation();
@@ -95,8 +84,6 @@ function useStepHistory(step, backTo) {
     synced.current = location.key;
     const delta = stepIndex(step) - stepIndex(historyStep);
     if (userMoved) {
-      // «Назад» — на шаг назад. «Вперёд» или назад нельзя (идёт запрос) —
-      // возвращаем историю туда, где экран.
       if (delta > 0 && backTo(historyStep)) return;
       navigate(delta);
       return;
@@ -186,7 +173,6 @@ function NewPasswordStep({ s, c }) {
         title={s.passwordSet ? l.passwordResetTitle : l.passwordCreateTitle}
         subtitle={s.passwordSet ? l.passwordResetSub : l.passwordCreateSub}
       />
-      {/* Логин для менеджера паролей: сохранит новый пароль к этому номеру. */}
       <input
         type="text"
         name="username"
@@ -225,7 +211,6 @@ function NewPasswordStep({ s, c }) {
   );
 }
 
-/** Правило пароля: серое, пока не выполнено, зелёное с галочкой — когда выполнено. */
 function Rule({ ok, text }) {
   return (
     <li className={`flex items-center gap-2 text-[13px] transition-colors ${ok ? 'text-ok-fg' : 'text-fg3'}`}>
@@ -245,7 +230,6 @@ function Rule({ ok, text }) {
   );
 }
 
-/** Поле «+992 ·· ··· ·· ··». Рамка акцентная, когда номер набран; в фокусе — темнее. */
 function PhoneField({ digits }) {
   const ready = digits.length === phoneDigits;
   return (
@@ -265,7 +249,6 @@ function PhoneField({ digits }) {
   );
 }
 
-/** 6 ячеек SMS-кода. Активная — акцентная рамка, при ошибке все — красноватые. */
 function OtpCells({ code, hasError }) {
   return (
     <div className="flex gap-1.5" aria-hidden="true">

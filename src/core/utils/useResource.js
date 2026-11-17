@@ -1,12 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-/**
- * Загрузка данных в духе Riverpod `AsyncValue`: при обновлении прошлое
- * значение сохраняется, ошибка показывается рядом с ним.
- *
- * `reload()` возвращает Promise, который не падает (ошибка — в `error`).
- * Без автоповторов: ошибка видна сразу, повтор — кнопкой или жестом.
- */
 export function useResource(fetcher, deps = []) {
   const [state, setState] = useState({ value: undefined, error: null, loading: true });
   const gen = useRef(0);

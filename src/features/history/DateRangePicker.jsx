@@ -13,11 +13,6 @@ const shortYearFmt = new Intl.DateTimeFormat('ru', { day: 'numeric', month: 'sho
 
 const same = (a, b) => !!a && !!b && a.getTime() === b.getTime();
 
-/**
- * Календарь «с — по» — как системный showDateRangePicker (Material 3)
- * во Flutter-версии. Телефон — на весь экран; ПК и планшет — окно по центру,
- * клик мимо окна и Esc закрывают. `onClose(range | null)`.
- */
 export function DateRangePicker({ title, initial, onClose }) {
   const today = useMemo(() => dayKey(new Date()), []);
   const [start, setStart] = useState(initial?.from ?? null);
@@ -107,7 +102,6 @@ function Month({ month, today, start, end, onSelect, innerRef }) {
   const year = month.getFullYear();
   const mo = month.getMonth();
   const days = new Date(year, mo + 1, 0).getDate();
-  // Неделя с понедельника.
   const lead = (new Date(year, mo, 1).getDay() + 6) % 7;
   const cells = [];
   for (let i = 0; i < lead; i++) cells.push(null);

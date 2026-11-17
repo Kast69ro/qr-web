@@ -7,37 +7,33 @@ import { BottomSheet } from '../../core/widgets/BottomSheet';
 import { FitText } from '../../core/widgets/FitText';
 import { CloseIcon, DownloadIcon, ShareIcon } from '../../core/widgets/Icons';
 import { useSession } from '../auth/SessionContext';
+import { useQrDirectory } from '../qr/QrDirectory';
 import { canSharePdf, sharePdf } from '../../core/pdf/shareFile';
 import { PaymentStatus, statusStyle } from './payment';
 
-/**
- * Карточка операции. Прототип: `POS Terminal.dc.html`, стр. 135–174.
- * Вместо «Печать чека» — «Поделиться чеком» на телефоне и «Скачать чек»
- * на ПК (только для оплаченных).
- * Телефон — шторка снизу; ПК и планшет — панель справа, список виден слева.
- * Открывается из истории и из «Последних операций» на главной.
- */
 export default function PaymentScreen({ payment: p, onClosed }) {
   const { state } = useSession();
+  const { dir } = useQrDirectory();
   const session = state.session;
+  const qr = p.qrId ? (dir?.qrById.get(p.qrId) ?? null) : null;
+  const store = qr ? (dir?.storeById.get(qr.storeId) ?? null) : null;
   const mounted = useMounted();
-  const [share, setShare] = useState('idle'); // idle | busy | failed
-  // Телефон — окно «Поделиться», ПК — скачивание файла (см. sharePdf).
+  const [share, setShare] = useState('idle');
   const [canShare] = useState(canSharePdf);
   const status = statusStyle(p.status);
   const at = p.createdAt;
-  const terminalId = session?.terminalId ?? '';
-  const terminalName = session?.terminalName ?? '';
+  const terminalId = qr ? qr.terminalId : (session?.terminalId ?? '');
+  const terminalName = qr ? qr.name : (session?.terminalName ?? '');
+  const storeName = store ? store.name : (session?.storeName ?? '');
   const orDash = (v) => (v ? v : '—');
 
   const shareReceipt = async () => {
     setShare('busy');
     try {
-      // PDF-библиотеки грузятся только когда нужны.
       const { buildReceiptPdf, receiptFileName } = await import('../receipt/receiptPdf');
       const pdf = await buildReceiptPdf({
         payment: p,
-        storeName: session?.storeName ?? '',
+        storeName,
         terminalName,
         terminalId,
       });
@@ -57,7 +53,6 @@ export default function PaymentScreen({ payment: p, onClosed }) {
     <BottomSheet
       onClosed={onClosed}
       label={`${formatMoney(p.amount)} · ${status.label}`}
-      // Внизу — только «Поделиться чеком», и только у оплаченных.
       bottom={
         p.status === PaymentStatus.success && (
           <div className="pb-safe shrink-0 border-t border-line-list bg-surface">
@@ -80,10 +75,8 @@ export default function PaymentScreen({ payment: p, onClosed }) {
     >
       {(close) => (
         <>
-          {/* Шапка — внутри списка: свайп вниз по ней тоже закрывает шторку. */}
           <div className="border-b border-line-list bg-surface px-4 pt-[22px] pb-4 md:px-5 md:pt-4">
             <div className="flex items-center">
-              {/* Телефон: «‹ Назад» слева, статус справа. ПК: статус слева, ✕ справа. */}
               <div className="min-w-0 flex-1">
                 <BackLink label={l.back} onTap={close} className="md:hidden" />
                 <div className="hidden md:block">
@@ -100,7 +93,6 @@ export default function PaymentScreen({ payment: p, onClosed }) {
               </div>
             </div>
             <div className="mt-3">
-              {/* На узком экране сумма уменьшается, а не обрезается. */}
               <FitText>
                 <span className="text-[40px] font-semibold tracking-[-0.8px] tabular-nums">{formatMoney(p.amount)}</span>
               </FitText>
@@ -119,9 +111,10 @@ export default function PaymentScreen({ payment: p, onClosed }) {
               ) : (
                 <InfoRow label={l.paymentBank} value={p.sender} />
               )}
-              {/* Как в прототипе: ID терминала, иначе название. */}
+              {qr && <InfoRow label={l.paymentQr} value={qr.name} />}
               <InfoRow label={l.settingsTerminal} value={orDash(terminalId || terminalName)} />
-              <InfoRow label={l.settingsStore} value={orDash(session?.storeName ?? '')} />
+              <InfoRow label={l.settingsStore} value={orDash(storeName)} />
+              {p.id && <InfoRow label={l.paymentId} value={p.id} />}
             </InfoCard>
             <PaymentTrail payment={p} />
           </div>

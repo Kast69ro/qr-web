@@ -5,22 +5,14 @@ import { l } from '../../core/i18n/ru';
 import { TjQrBrandRow } from '../../core/widgets/Common';
 import { FitText } from '../../core/widgets/FitText';
 import { QrCodeView, QrPlaceholder, useQr } from '../../core/widgets/QrCode';
-import { useSession } from '../auth/SessionContext';
 import { useTheme } from '../settings/ThemeContext';
 
-/**
- * QR на весь экран для сканирования. Прототип: стр. 122–133.
- * Экран не гаснет, пока QR открыт (Screen Wake Lock API, где он есть).
- * Яркость экрана браузер менять не даёт.
- */
-export default function QrFullscreenScreen() {
-  const back = useBack(Routes.home);
-  const { state } = useSession();
+export default function QrFullscreenScreen({ payload, caption, fallback = Routes.qrs }) {
+  const back = useBack(fallback);
   const { dark } = useTheme();
-  const session = state.session;
-  const build = useQr(session?.terminalQR || null);
+  const build = useQr(payload || null);
   const code = build && !build.error ? build : null;
-  const merchant = session?.storeName || '—';
+  const merchant = caption || '—';
   const box = useRef(null);
   const [side, setSide] = useState(0);
 
@@ -52,14 +44,12 @@ export default function QrFullscreenScreen() {
     };
   }, [back]);
 
-  // min(92vw, 78vh), но не больше, чем остаётся под подписи.
   useLayoutEffect(() => {
     const measure = () => {
       const el = box.current;
       if (!el) return;
       const w = window.innerWidth;
       const h = window.innerHeight;
-      // Без внутреннего отступа 20 px с каждой стороны.
       const bw = el.clientWidth - 40;
       const bh = el.clientHeight - 40;
       setSide(Math.max(0, Math.min(Math.min(w * 0.92, h * 0.78), Math.min(bw, bh - 160))));
@@ -69,8 +59,6 @@ export default function QrFullscreenScreen() {
     return () => window.removeEventListener('resize', measure);
   }, []);
 
-  // Светлая — белый экран, как в прототипе. Тёмная — чёрный экран и QR
-  // на белой скруглённой плашке (как в Apple Wallet).
   const radius = dark ? 22 : 0;
 
   return (

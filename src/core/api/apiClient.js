@@ -3,28 +3,19 @@ import { ApiErrorKind, ApiException } from './apiError';
 import { ApiPaths } from './apiPaths';
 import { authTokens, tokensFromJson } from './authTokens';
 
-/**
- * Что делать, когда refresh-токен больше не принимают (401 на refresh):
- * сессия ставит обработчик, который просит пароль заново.
- */
 let onSessionExpired = null;
 export function setSessionExpiredHandler(handler) {
   onSessionExpired = handler;
 }
 
-/**
- * Единственная точка выхода в сеть. Экраны сюда не ходят — только
- * репозитории. Логов запросов нет намеренно (банк).
- */
+// Логов запросов нет намеренно (банк).
 export const apiClient = {
-  /** Данные `/pos/*`: с access-токеном; на 401 — один refresh и повтор. */
   get(path, query = {}) {
     return authorized('GET', path, { query });
   },
   post(path, body = {}) {
     return authorized('POST', path, { body });
   },
-  /** Ручки входа `/portal/*` — без access-токена. `bearer` — setup-токен для set-password. */
   postPublic(path, body = {}, { bearer } = {}) {
     return send('POST', path, { body, bearer });
   },
@@ -39,25 +30,19 @@ async function authorized(method, path, options) {
   } catch (e) {
     if (!is401(e)) throw e;
   }
-  // Один refresh на один 401 — не зацикливаемся.
   const fresh = await refreshAccess(token);
   try {
     return await send(method, path, { ...options, bearer: fresh });
   } catch (e) {
-    // Свежий токен тоже не приняли — дальше работать нечем.
     if (is401(e)) expire();
     throw e;
   }
 }
 
-/**
- * Обновление access. Параллельные запросы, получившие 401, ждут один и тот же
- * refresh: refresh ротируется, и второй вызов со старым токеном выбил бы сессию.
- */
+// Параллельные 401 ждут один refresh: refresh ротируется, второй вызов со старым токеном выбил бы сессию.
 let refreshing = null;
 function refreshAccess(failedToken) {
   const current = authTokens.accessToken();
-  // Пока ждали ответа, токен уже обновил другой запрос.
   if (current && current !== failedToken) return Promise.resolve(current);
   refreshing ??= withRefreshLock(rotate).finally(() => {
     refreshing = null;
@@ -77,17 +62,12 @@ function withRefreshLock(fn) {
 async function rotate() {
   const generation = authTokens.generation();
   let token = authTokens.refreshToken();
-  // Вторая попытка — только если refresh успела ротировать другая вкладка
-  // (браузер без Web Locks).
   for (let attempt = 0; attempt < 2; attempt++) {
-    // Токена нет — его стёрла другая вкладка (выход / блокировка);
-    // экран сменит событие storage, а не этот запрос.
     if (!token) throw new ApiException(ApiErrorKind.http, { statusCode: 401 });
     let json;
     try {
       json = await send('POST', ApiPaths.authRefresh, { body: { refresh_token: token } });
     } catch (e) {
-      // Нет сети, таймаут, 5xx — не выходим, экран предложит «Повторить».
       if (!is401(e)) throw e;
       const latest = authTokens.refreshToken();
       if (latest && latest !== token) {
@@ -123,7 +103,9 @@ async function send(method, path, { query = {}, body, bearer } = {}) {
 
   const params = new URLSearchParams();
   for (const [k, v] of Object.entries(query)) {
-    if (v !== null && v !== undefined) params.append(k, String(v));
+    if (v === null || v === undefined) continue;
+    if (Array.isArray(v)) v.forEach((item) => params.append(k, String(item)));
+    else params.append(k, String(v));
   }
   const qs = params.toString();
   const url = `${env.apiBaseUrl}${path}${qs ? `?${qs}` : ''}`;
@@ -142,7 +124,6 @@ async function send(method, path, { query = {}, body, bearer } = {}) {
       },
       body: body !== undefined ? JSON.stringify(body) : undefined,
       signal: controller.signal,
-      // Авторизация — только заголовком, куки бэку не нужны.
       credentials: 'omit',
       cache: 'no-store',
     });
@@ -163,7 +144,6 @@ async function send(method, path, { query = {}, body, bearer } = {}) {
   } catch (e) {
     clearTimeout(timer);
     if (e?.name === 'AbortError') throw new ApiException(ApiErrorKind.timeout);
-    // Тело не JSON — ниже решим по статусу.
   }
   clearTimeout(timer);
 

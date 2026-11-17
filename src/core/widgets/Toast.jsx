@@ -2,7 +2,6 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 
 const ToastContext = createContext(() => {});
 
-/** Аналог SnackBar: короткое сообщение внизу экрана на 4 с. */
 export function ToastProvider({ children }) {
   const [toast, setToast] = useState(null);
   const timer = useRef(null);

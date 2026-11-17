@@ -9,6 +9,8 @@ import QrFullscreenScreen from '../features/home/QrFullscreenScreen';
 import { paymentFromState } from '../features/payment/payment';
 import PaymentScreen from '../features/payment/PaymentScreen';
 import { ThemeProvider } from '../features/settings/ThemeContext';
+import { qrTitle } from '../features/qr/qrDomain';
+import { QrDirectoryProvider, useQrDirectory } from '../features/qr/QrDirectory';
 import MainShell from './MainShell';
 import { redirectFor, Routes } from './routes';
 import { useBack } from './useBack';
@@ -21,7 +23,6 @@ export default function App() {
           <ToastProvider>
             <DialogProvider>
               <AutoLock />
-              {/* На весь экран: телефон — вкладки снизу, ПК — меню слева (MainShell). */}
               <div id="app-frame" className="relative h-dvh overflow-hidden bg-bg">
                 <Root />
               </div>
@@ -33,7 +34,6 @@ export default function App() {
   );
 }
 
-/** Экран по состоянию сессии — как redirect у GoRouter. */
 function Root() {
   const { state } = useSession();
   const location = useLocation();
@@ -43,22 +43,37 @@ function Root() {
 
   if (path === Routes.login) return <LoginScreen />;
   if (path === Routes.unlock) return <UnlockScreen />;
-  return <Inside path={path} />;
+  // Справочник точек и QR — только после входа: ему нужен токен.
+  return (
+    <QrDirectoryProvider>
+      <Inside path={path} />
+    </QrDirectoryProvider>
+  );
 }
 
-/** Вошли: разделы (вкладки / меню), внутренние экраны — поверх них. */
 function Inside({ path }) {
   const location = useLocation();
-  const section = path.startsWith(Routes.history) ? 'history' : path.startsWith(Routes.settings) ? 'settings' : 'home';
-  // Операцию открывают из истории или из «Последних операций» на главной.
+  const { dir } = useQrDirectory();
+  const section = path.startsWith(Routes.history)
+    ? 'history'
+    : path.startsWith(Routes.qrs)
+      ? 'qrs'
+      : path.startsWith(Routes.settings)
+        ? 'settings'
+        : 'home';
   const fromHome = path === Routes.homePayment;
   const closePayment = useBack(fromHome ? Routes.home : Routes.history);
 
   let overlay = null;
-  if (path === Routes.qr) overlay = <QrFullscreenScreen />;
-  else if (path === Routes.payment || fromHome) {
-    // Платёж передаётся через state: своего ID у него нет.
-    // Без state (например, открыли ссылку заново) — в раздел, откуда открывали.
+  if (path === Routes.qrsQr) {
+    const id = location.state?.qrId;
+    const qr = id ? dir?.qrById.get(String(id)) : null;
+    if (!id || (dir && !qr)) return <Navigate to={Routes.qrs} replace />;
+    if (qr) {
+      const store = dir.storeById.get(qr.storeId);
+      overlay = <QrFullscreenScreen payload={qr.payload} caption={store ? `${store.name} · ${qr.name}` : qrTitle(qr, dir)} />;
+    }
+  } else if (path === Routes.payment || fromHome) {
     const payment = paymentFromState(location.state?.payment);
     if (!payment) return <Navigate to={fromHome ? Routes.home : Routes.history} replace />;
     overlay = <PaymentScreen key={location.key} payment={payment} onClosed={closePayment} />;

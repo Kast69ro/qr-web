@@ -3,7 +3,6 @@ import { l } from '../i18n/ru';
 
 const DialogContext = createContext(null);
 
-/** Диалоги в стиле Material AlertDialog. */
 export function DialogProvider({ children }) {
   const [dialog, setDialog] = useState(null);
   const resolver = useRef(null);
@@ -81,7 +80,6 @@ function AlertDialog({ title, text, cancelLabel, okLabel, onClose }) {
   );
 }
 
-/** «Выйти?» — после выхода снова нужен вход по SMS, поэтому переспрашиваем. */
 export function useConfirmLogout() {
   const confirm = useContext(DialogContext);
   return useCallback(

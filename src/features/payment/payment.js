@@ -7,7 +7,6 @@ export const PaymentStatus = Object.freeze({
   pending: 'pending',
   refunded: 'refunded',
   refundPending: 'refundPending',
-  /** Статус, которого фронт не знает. Не считаем его оплатой. */
   unknown: 'unknown',
 });
 
@@ -40,10 +39,8 @@ export function parseStatus(raw) {
   }
 }
 
-/** Откуда пришли деньги: межбанк (`external`) или клиент ActivBank (`internal`). */
 export const PaymentType = Object.freeze({ external: 'external', internal: 'internal' });
 
-/** Без поля `type` (старый бэк) — межбанк, как было до него. */
 export const parseType = (raw) =>
   typeof raw === 'string' && raw.trim().toLowerCase() === 'internal' ? PaymentType.internal : PaymentType.external;
 
@@ -58,16 +55,17 @@ const strOrNull = (v) => {
   return v;
 };
 
-/**
- * Платёж из `/pos/terminal` (`last_payment`) и `/pos/history` (`payments`).
- * Модель для UI: `{ sender, type, senderBankId, amount, status, createdAt, isInternal }`.
- */
+const idOrNull = (v) => (v === null || v === undefined || v === '' ? null : String(v));
+
 export function paymentFromJson(json) {
   if (json === null || typeof json !== 'object') throw new TypeError('bad payment');
   const name = strOrNull(json.sender)?.trim();
   const type = parseType(strOrNull(json.type));
   const bankId = json.sender_bank_id;
   return Object.freeze({
+    id: idOrNull(json.id),
+    qrId: idOrNull(json.qr_id),
+    storeId: idOrNull(json.store_id),
     sender: !name ? '—' : name,
     type,
     senderBankId: bankId === null || bankId === undefined ? null : num(bankId),
@@ -78,17 +76,12 @@ export function paymentFromJson(json) {
   });
 }
 
-/** Платёж в `history.state` (для перехода на карточку) и обратно. */
 export const paymentToState = (p) => ({ ...p, createdAt: p.createdAt ? p.createdAt.getTime() : null });
 export function paymentFromState(s) {
   if (!s || typeof s !== 'object' || typeof s.amount !== 'number' || typeof s.status !== 'string') return null;
   return Object.freeze({ ...s, createdAt: s.createdAt == null ? null : new Date(s.createdAt) });
 }
 
-/**
- * Подпись и цвета статуса: фон чипа, текст, точка / полоса слева.
- * Классы — токены темы (index.css), `hex` — светлая палитра для PDF.
- */
 const styles = {
   [PaymentStatus.success]: {
     label: l.statusSuccess,

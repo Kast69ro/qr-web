@@ -13,10 +13,6 @@ import { SessionReason, useSession } from './SessionContext';
 
 const asApi = (e) => (e instanceof ApiException ? e : new ApiException(ApiErrorKind.badResponse));
 
-/**
- * Экран блокировки: пароль в новой вкладке / после закрытия браузера и после
- * 5 минут бездействия. Номер известен — спрашиваем только пароль (`/portal/login`).
- */
 export default function UnlockScreen() {
   const session = useSession();
   const confirmLogout = useConfirmLogout();
@@ -33,7 +29,6 @@ export default function UnlockScreen() {
     try {
       const result = await authRepository.login(saved.phone, st.password);
       if (!mounted.current) return;
-      // Роутер уведёт на главную, экран закроется.
       signedIn({ tokens: result.tokens, session: result.session ?? saved });
     } catch (e) {
       if (!mounted.current) return;
@@ -46,7 +41,6 @@ export default function UnlockScreen() {
   };
 
   const error = s.failure ? loginFailureText(s.failure) : null;
-  // Почему заблокировали — пока человек не начал ввод.
   const note = session.state.reason === SessionReason.idle && s.password === '' && !s.failure;
 
   return (
@@ -81,7 +75,6 @@ export default function UnlockScreen() {
           title={l.unlockTitle}
           subtitle={`${formatPhoneHidden(point?.phone ?? '')} · ${point?.terminalName ? point.terminalName : l.terminalFallback}`}
         />
-        {/* Логин для менеджера паролей — к нему привязан сохранённый пароль. */}
         <input
           type="text"
           name="username"

@@ -3,9 +3,7 @@ import { l } from '../../core/i18n/ru';
 import { VisibilityIcon, VisibilityOffIcon } from '../../core/widgets/Icons';
 import { passwordMaxLength } from './authRepository';
 
-// Общие элементы экранов входа и экрана пароля.
 
-/** Заголовок экрана входа и подпись под ним. */
 export function Heading({ title, subtitle }) {
   return (
     <>
@@ -23,7 +21,6 @@ export function FieldLabel({ htmlFor, children }) {
   );
 }
 
-/** Поле пароля в стиле поля телефона: 60 px, рамка 1,5 px, глаз справа. */
 export function PasswordField({ label, value, onChange, autoComplete, autoFocus = false, invalid = false, onEnter, inputRef }) {
   const id = useId();
   const [visible, setVisible] = useState(false);
@@ -66,7 +63,6 @@ export function PasswordField({ label, value, onChange, autoComplete, autoFocus 
         <button
           type="button"
           onClick={() => setVisible((v) => !v)}
-          // Фокус остаётся в поле: клавиатура на телефоне не закрывается.
           onMouseDown={(e) => e.preventDefault()}
           aria-label={visible ? l.passwordHide : l.passwordShow}
           aria-pressed={visible}
@@ -80,7 +76,6 @@ export function PasswordField({ label, value, onChange, autoComplete, autoFocus 
   );
 }
 
-/** Текстовая ссылка с зоной нажатия 44 px. */
 export function LinkButton({ label, className, onTap }) {
   return (
     <button

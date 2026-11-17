@@ -1,10 +1,5 @@
 import { useEffect } from 'react';
 
-/**
- * Экран поверх приложения (смена кода, календарь периода).
- * Телефон — на весь экран, как переход на новый экран во Flutter.
- * ПК и планшет — окно по центру поверх затемнения; клик мимо окна и Esc закрывают.
- */
 export function ModalPage({ onClose, label, children, z = 'z-30', panelClass = 'md:max-w-[460px]' }) {
   useEffect(() => {
     const onKey = (e) => {
@@ -17,7 +12,6 @@ export function ModalPage({ onClose, label, children, z = 'z-30', panelClass = '
   return (
     <div
       className={`absolute inset-0 ${z} flex flex-col bg-bg md:items-center md:justify-center md:bg-black/55 md:p-6 md:anim-fade`}
-      // На телефоне окно занимает весь экран, и сюда клик не доходит.
       onClick={onClose}
     >
       <div

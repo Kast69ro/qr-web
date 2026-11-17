@@ -1,22 +1,10 @@
-/**
- * Ключи хранилища. Всё, что связано с сессией, — только здесь.
- *
- * В браузере нет аналога Keychain / Keystore, поэтому — localStorage
- * своего origin, общий для всех вкладок. Пароль не хранится нигде,
- * access-токен — только в памяти (authTokens.js).
- */
 export const SecureKeys = Object.freeze({
-  /** JSON сессии: телефон и данные точки. */
   session: 'abqr.session.v1',
-  /** Refresh-токен (~30 дней). Ротируется на каждом refresh. */
   refreshToken: 'abqr.refresh.v2',
-  /** Время последнего действия в любой вкладке — для блокировки по бездействию. */
   activity: 'abqr.activity.v2',
 });
 
-/** Ключи прошлых версий (код доступа, старый refresh) — стираем при запуске. */
 const legacyKeys = ['abqr.pin.v1', 'abqr.pin.failures.v1', 'abqr.refresh.v1'];
-/** То же в sessionStorage. */
 const legacyTabKeys = ['abqr.refresh.tab.v1', 'abqr.activity.v1'];
 
 function storage() {
@@ -27,7 +15,6 @@ function storage() {
   }
 }
 
-/** Память на случай, если localStorage недоступен (приватный режим Safari). */
 const memory = new Map();
 
 export const secureStore = {
@@ -57,7 +44,6 @@ export const secureStore = {
     }
     memory.delete(key);
   },
-  /** Стирает всё про сессию. Тема (настройка устройства) остаётся. */
   deleteAll() {
     for (const key of Object.values(SecureKeys)) this.delete(key);
     this.deleteLegacy();

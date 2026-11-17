@@ -4,13 +4,8 @@ import { AuthStatus, SessionReason, useSession } from './SessionContext';
 
 /** Что считаем действием. capture — чтобы ловить и scroll внутренних списков. */
 const activityEvents = ['pointerdown', 'pointermove', 'keydown', 'wheel', 'touchstart', 'scroll'];
-/** Как часто проверять бездействие. */
 const checkEveryMs = 15000;
 
-/**
- * Блокирует кабинет (экран пароля), если 5 минут не было действий.
- * Скрытая вкладка — тоже бездействие: проверяем и при возврате на неё.
- */
 export function AutoLock() {
   const { state, lock } = useSession();
   const unlocked = state.status === AuthStatus.unlocked;

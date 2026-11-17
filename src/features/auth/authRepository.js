@@ -5,7 +5,6 @@ import { tokensFromJson } from '../../core/api/authTokens';
 import { fullPhone } from '../../core/utils/format';
 import { l } from '../../core/i18n/ru';
 
-/** Политика пароля на бэке. */
 export const passwordMinLength = 8;
 export const passwordMaxLength = 64;
 
@@ -21,7 +20,6 @@ const seconds = (v, fallback) => {
   return Math.trunc(v);
 };
 
-/** `terminal{...}` из ответа → сессия. Терминала нет — `null`. */
 function sessionFromTerminal(phoneDigits, t) {
   if (t === null || t === undefined) return null;
   if (typeof t !== 'object') throw new TypeError('bad terminal');
@@ -43,10 +41,6 @@ const emptySession = (phoneDigits) => ({
 });
 
 export const authRepository = {
-  /**
-   * Вход по паролю (экран «Введите пароль»). `session` — `null`, если бэк
-   * не прислал терминал: тогда остаются сохранённые данные точки.
-   */
   async login(phoneDigits, password) {
     const json = await apiClient.postPublic(ApiPaths.login, { phone: fullPhone(phoneDigits), password });
     return parseResponse(() => ({
@@ -55,7 +49,6 @@ export const authRepository = {
     }));
   },
 
-  /** Отправляет SMS-код. Возвращает срок действия кода в секундах. */
   async requestOtp(phoneDigits) {
     const json = await apiClient.postPublic(ApiPaths.otpRequest, { phone: fullPhone(phoneDigits) });
     return parseResponse(() => seconds(json.expires_in, 300));
@@ -72,14 +65,12 @@ export const authRepository = {
       return {
         setupToken: json.setup_token,
         setupExpiresIn: seconds(json.setup_expires_in, 600),
-        /** `false` — первый вход, `true` — сброс пароля. */
         passwordSet: json.password_set === true,
         session: sessionFromTerminal(phoneDigits, json.terminal),
       };
     });
   },
 
-  /** Задаёт пароль и сразу входит. `fallbackSession` — терминал из verify. */
   async setPassword(setupToken, password, phoneDigits, fallbackSession) {
     const json = await apiClient.postPublic(ApiPaths.setPassword, { password }, { bearer: setupToken });
     return parseResponse(() => ({
@@ -129,7 +120,6 @@ function common(e) {
   }
 }
 
-/** Ошибка `POST /portal/login`. */
 export function failureFromLogin(e) {
   // Бэк одинаково отвечает на неверный номер, неверный пароль и «пароль не задан».
   if (e.statusCode === 401) return { kind: K.wrongPassword };
@@ -137,7 +127,6 @@ export function failureFromLogin(e) {
   return common(e);
 }
 
-/** Ошибка `POST /portal/otp/request`. */
 export function failureFromRequest(e) {
   if (e.statusCode === 404) return { kind: K.terminalNotFound };
   if (e.statusCode === 403) return { kind: K.notOurMerchant };
@@ -145,21 +134,18 @@ export function failureFromRequest(e) {
   return common(e);
 }
 
-/** Ошибка `POST /portal/otp/verify`. */
 export function failureFromVerify(e) {
   if (e.statusCode === 429) return { kind: K.otpTooManyAttempts, detail: e.detail };
   if (e.statusCode === 400) return { kind: K.otpWrong, detail: e.detail };
   return common(e);
 }
 
-/** Ошибка `POST /portal/set-password`. */
 export function failureFromSetPassword(e) {
   if (e.statusCode === 401) return { kind: K.setupExpired };
   if (e.statusCode === 400 || e.statusCode === 422) return { kind: K.passwordRejected, detail: e.detail };
   return common(e);
 }
 
-/** Текст ошибки входа. Где бэк присылает `detail`, показываем его. */
 export function loginFailureText(f) {
   switch (f.kind) {
     case K.wrongPassword:

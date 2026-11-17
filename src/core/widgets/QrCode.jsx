@@ -5,11 +5,7 @@ export const QrBuildError = Object.freeze({ tooLong: 'tooLong', invalid: 'invali
 
 const cache = new Map();
 
-/**
- * Готовая матрица QR или ошибка построения.
- * Уровень коррекции L, как в прототипе: модули крупнее, сканируется издалека.
- * Кешируется по строке: строится один раз для главной и полноэкранного QR.
- */
+// Коррекция L: модули крупнее, сканируется издалека.
 export function buildQr(data) {
   if (cache.has(data)) return cache.get(data);
   let result;
@@ -28,10 +24,6 @@ export function useQr(payload) {
   return useMemo(() => (payload ? buildQr(payload) : null), [payload]);
 }
 
-/**
- * Чёрный QR на белом с тихой зоной `quietModules` модулей (стандарт — 4).
- * Занимает весь квадрат родителя.
- */
 export function QrCodeView({ code, quietModules = 4, label = 'QR-код для оплаты', radius = 0 }) {
   const path = useMemo(() => {
     let d = '';
@@ -66,7 +58,6 @@ export function QrCodeView({ code, quietModules = 4, label = 'QR-код для �
   );
 }
 
-/** Серый макет QR, пока строка с бэка не пришла. */
 export function QrPlaceholder({ radius = 0 }) {
   const eye = (x, y) => <rect x={x} y={y} width={7} height={7} fill="#C9CAC5" />;
   return (

@@ -1,9 +1,7 @@
 import { dayKey, daysBetween, formatDayMonth, formatFullDate } from '../../core/utils/format';
 import { PaymentStatus } from '../payment/payment';
 
-// ─── Период ────────────────────────────────────────────────────────────────
 
-/** Календарные дни с `from` по `to` включительно — как `from`/`to` в API. */
 export function dateRange(a, b) {
   const [from, to] = a > b ? [b, a] : [a, b];
   return Object.freeze({ from: dayKey(from), to: dayKey(to) });
@@ -23,17 +21,13 @@ export const PeriodKind = Object.freeze({
   custom: 'custom',
 });
 export const periodKinds = Object.values(PeriodKind);
+export const datedPeriodKinds = periodKinds.filter((k) => k !== PeriodKind.all);
 
-/**
- * Фильтр истории: `{ kind, custom }`. Хранится вид периода, а не даты:
- * «Сегодня», выбранное вчера вечером, после полуночи означает уже новый день.
- */
 export const period = (kind) => ({ kind, custom: null });
 export const customPeriod = (range) => ({ kind: PeriodKind.custom, custom: range });
 export const periodAll = period(PeriodKind.all);
 export const samePeriod = (a, b) => a.kind === b.kind && sameRange(a.custom, b.custom);
 
-/** Дни периода на момент `now`; `null` — вся история. */
 export function periodRange(p, now) {
   const today = dayKey(now);
   const day = (shift) => new Date(now.getFullYear(), now.getMonth(), now.getDate() + shift);
@@ -61,26 +55,17 @@ export function periodRange(p, now) {
 /** Отчёт в PDF — не больше чем за год: иначе тысячи страниц. */
 export const maxReportDays = 366;
 
-/** `08.09.2026` или `10.09.2026 – 10.10.2026`. */
 export const formatRange = (r) =>
   isSingleDay(r) ? formatFullDate(r.from) : `${formatFullDate(r.from)} – ${formatFullDate(r.to)}`;
 
-/** Короче для чипа: `10.09 – 10.10`; год — если период не в текущем году. */
 export function formatRangeShort(r, now) {
   const sameYear = r.from.getFullYear() === now.getFullYear() && r.to.getFullYear() === now.getFullYear();
   if (!sameYear) return formatRange(r);
   return isSingleDay(r) ? formatDayMonth(r.from) : `${formatDayMonth(r.from)} – ${formatDayMonth(r.to)}`;
 }
 
-// ─── Лента ─────────────────────────────────────────────────────────────────
 
-/**
- * Загруженная часть истории.
- *
- * Новые платежи приходят в начало списка на сервере и сдвигают старые
- * вниз. Без поправки следующая страница начиналась бы с уже показанных
- * строк. Поэтому следим, насколько вырос `total`, и сдвигаем `offset`.
- */
+// Новые платежи сдвигают старые вниз на сервере — следим за ростом `total` и сдвигаем `offset`.
 export class HistoryFeed {
   constructor(payments, total, shift) {
     this.payments = Object.freeze(payments);
@@ -93,12 +78,10 @@ export class HistoryFeed {
     return new HistoryFeed([...page.payments], page.total, 0);
   }
 
-  /** `offset` для следующей страницы. */
   get nextOffset() {
     return this.payments.length + this._shift;
   }
 
-  /** Сколько старых платежей ещё не загружено. */
   get remaining() {
     return Math.min(Math.max(this._total - this.nextOffset, 0), Math.max(this._total, 0));
   }
@@ -107,18 +90,14 @@ export class HistoryFeed {
     return this.remaining > 0;
   }
 
-  /** Добавляет следующую страницу, запрошенную с `nextOffset`. */
   append(page) {
     const grown = page.total > this._total ? page.total - this._total : 0;
-    // Первые `grown` строк ответа — те, что мы уже показали.
     const fresh = page.payments.slice(grown);
     return new HistoryFeed([...this.payments, ...fresh], page.total, this._shift + grown);
   }
 }
 
-/** Группы по календарным дням в порядке списка; без даты — в конце. */
 export function groupByDay(payments) {
-  // Map хранит ключи в порядке добавления — порядок дней как в списке.
   const byDay = new Map();
   const noDate = [];
   for (const p of payments) {
@@ -136,14 +115,11 @@ export function groupByDay(payments) {
 }
 
 function group(day, list) {
-  // Суммируем в дирамах, чтобы не копить ошибку float.
   let cents = 0;
   for (const p of list) if (p.status === PaymentStatus.success) cents += Math.round(p.amount * 100);
-  /** Сумма оплаченных среди загруженных — как в прототипе. */
   return { day, payments: list, successAmount: cents / 100 };
 }
 
-// ─── Отчёт ─────────────────────────────────────────────────────────────────
 
 function total(payments, statuses) {
   let count = 0;
@@ -156,8 +132,7 @@ function total(payments, statuses) {
   return { count, amount: cents / 100 };
 }
 
-/** Данные для PDF-отчёта: все операции периода и точка. */
-export function historyReport({ range, payments, storeName, terminalName, terminalId, generatedAt }) {
+export function historyReport({ range, payments, storeName, terminalName, terminalId, generatedAt, qrDescription = null, qrLabelOf = null }) {
   return {
     range,
     payments,
@@ -165,9 +140,10 @@ export function historyReport({ range, payments, storeName, terminalName, termin
     terminalName,
     terminalId,
     generatedAt,
+    qrDescription,
+    qrLabelOf,
     success: total(payments, [PaymentStatus.success]),
     cancel: total(payments, [PaymentStatus.cancel]),
-    /** Возвраты, включая «в обработке». Бэк их пока не присылает. */
     refunded: total(payments, [PaymentStatus.refunded, PaymentStatus.refundPending]),
   };
 }

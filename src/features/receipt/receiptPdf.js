@@ -3,15 +3,9 @@ import { Canvas, createPdf, lineHeight, pdfColors as C, wrap } from '../../core/
 import { formatFullDate, formatIsoDate, formatMoney, formatTime } from '../../core/utils/format';
 import { statusStyle } from '../payment/payment';
 
-/** Ширина чека фиксирована, высота — по содержимому. */
 const width = 360;
 const pad = 16;
 
-/**
- * Чек в векторный PDF: текст выделяется, файл весит десятки КБ.
- * Состав — как у печатного чека в прототипе (стр. 619–636).
- * `receipt` = `{ payment, storeName, terminalName, terminalId }`.
- */
 export async function buildReceiptPdf(receipt) {
   const { doc, f } = await createPdf({ title: l.receiptTitle, creator: l.appTitle });
   const p = receipt.payment;
@@ -37,7 +31,6 @@ export async function buildReceiptPdf(receipt) {
   const cardInner = inner - 32;
   const labelMax = cardInner / 2;
 
-  // Строка «подпись — значение»: подпись не шире половины, значение справа.
   const rowLayout = ([label, value]) => {
     const labelLines = wrap(label, f.regular, 14, labelMax);
     const labelW = Math.max(...labelLines.map((s) => f.regular.widthOfTextAtSize(s, 14)));
@@ -67,7 +60,6 @@ export async function buildReceiptPdf(receipt) {
 
   const page = doc.addPage([width, Math.ceil(height)]);
   const c = new Canvas(page);
-  // Без полей: фон чека заливает всю страницу.
   c.rect({ x: 0, top: 0, w: width, h: page.getHeight(), fill: C.background });
 
   let y = pad;
@@ -76,7 +68,6 @@ export async function buildReceiptPdf(receipt) {
   y += c.text(l.receiptTitle, { x: pad, top: y, font: f.regular, size: 13, hex: C.textSecondary });
   y += 16;
 
-  // Сумма и статус.
   c.roundRect({ x: pad, top: y, w: inner, h: card1H, r: 12, fill: C.surface, stroke: C.borderList });
   let cy = y + 16;
   cy += c.text(l.receiptAmount, { x: pad + 16, top: cy, font: f.regular, size: 13, hex: C.textSecondary });
@@ -88,7 +79,6 @@ export async function buildReceiptPdf(receipt) {
   c.text(status.label, { x: pad + 26, top: cy + 5, font: f.regular, size: 13, hex: status.hex.fg });
   y += card1H + 12;
 
-  // Реквизиты.
   c.roundRect({ x: pad, top: y, w: inner, h: card2H, r: 12, fill: C.surface, stroke: C.borderList });
   let ry = y + 16;
   laid.forEach((r, i) => {
@@ -112,7 +102,6 @@ export async function buildReceiptPdf(receipt) {
   return doc.save();
 }
 
-/** `receipt_2026-09-08_1412` — имя файла без кириллицы и пробелов. */
 export function receiptFileName(p) {
   const at = p.createdAt;
   if (!at) return 'receipt';

@@ -1,13 +1,6 @@
 import { l } from '../../core/i18n/ru';
 import { appLogo, BrandHeader, TjQrBrandRow } from '../../core/widgets/Common';
 
-/**
- * Раскладка экранов входа и пароля.
- *
- * Телефон: форма на весь экран, верх прокручивается, кнопка прижата к низу
- * (как во Flutter). Планшет: форма в карточке по центру. ПК: слева бренд-панель,
- * справа карточка с формой; кнопка — сразу под полями.
- */
 export function AuthLayout({ children, footer }) {
   return (
     <div className="flex h-full bg-bg">
@@ -16,7 +9,6 @@ export function AuthLayout({ children, footer }) {
         <div className="flex min-h-0 flex-1 flex-col md:min-h-full md:flex-none md:items-center md:justify-center md:p-10">
           <div className="flex min-h-0 flex-1 flex-col px-[22px] pt-6 pb-[26px] md:w-full md:max-w-[440px] md:flex-none md:rounded-[28px] md:border md:border-line md:bg-surface md:p-10 md:elev-pop">
             <div className="min-h-0 flex-1 overflow-y-auto md:flex-none md:overflow-visible">
-              {/* На ПК бренд — на панели слева. */}
               <div className="mb-5 lg:hidden">
                 <BrandHeader />
               </div>
@@ -30,11 +22,9 @@ export function AuthLayout({ children, footer }) {
   );
 }
 
-/** Тёмная панель с брендом — одинаковая в светлой и тёмной теме. */
 function BrandPanel() {
   return (
     <aside className="pt-safe pb-safe relative hidden w-[44%] max-w-[620px] shrink-0 flex-col overflow-hidden border-r border-white/5 bg-[#0e0f10] text-white lg:flex">
-      {/* Мягкое красное свечение за логотипом. */}
       <div
         aria-hidden="true"
         className="pointer-events-none absolute -top-48 -left-48 h-[640px] w-[640px] rounded-full bg-[radial-gradient(closest-side,rgba(227,30,36,0.32),transparent)]"
