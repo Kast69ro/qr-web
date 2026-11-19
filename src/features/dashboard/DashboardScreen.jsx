@@ -6,12 +6,12 @@ import { l } from '../../core/i18n/ru';
 import { sharePdf } from '../../core/pdf/shareFile';
 import { formatDateTimeShort, formatMoney } from '../../core/utils/format';
 import { useDesktop } from '../../core/utils/useMediaQuery';
-import { useResource } from '../../core/utils/useResource';
+import { freshValue, useResource } from '../../core/utils/useResource';
 import { appLogo, Card, pageClass, PageHeader, PressableCard, RetryBanner, ToolbarButton } from '../../core/widgets/Common';
 import { FitText } from '../../core/widgets/FitText';
-import { ArrowDownIcon, ArrowUpIcon, ChevronRightIcon, PdfOutlinedIcon, RefreshIcon } from '../../core/widgets/Icons';
+import { ArrowDownIcon, ArrowUpIcon, ChevronRightIcon, CloseIcon, PdfOutlinedIcon, RefreshIcon } from '../../core/widgets/Icons';
 import { PullToRefresh } from '../../core/widgets/PullToRefresh';
-import { Spinner } from '../../core/widgets/Spinner';
+import { Skeleton, SkeletonGroup } from '../../core/widgets/Skeleton';
 import { useToast } from '../../core/widgets/Toast';
 import { useSession } from '../auth/SessionContext';
 import { historyRepository } from '../history/historyRepository';
@@ -19,8 +19,8 @@ import { customPeriod, datedPeriodKinds, formatRangeShort, period as periodOf, P
 import { FilterBar, PeriodChips } from '../history/PeriodChips';
 import { useRangePicker } from '../history/useRangePicker';
 import { paymentToState } from '../payment/payment';
-import { PaymentRow } from '../payment/PaymentRow';
-import { qrTitle } from '../qr/qrDomain';
+import { PaymentRow, PaymentRowSkeleton } from '../payment/PaymentRow';
+import { normalizeFilter, qrTitle, sameFilter } from '../qr/qrDomain';
 import { QrPicker } from '../qr/QrPicker';
 import { useQrDirectory, useQrFilter } from '../qr/QrDirectory';
 import { BarChart } from './BarChart';
@@ -46,7 +46,7 @@ export default function DashboardScreen({ scrollRef }) {
   const desktop = useDesktop();
   const toast = useToast();
   const { state } = useSession();
-  const { dir, reload: reloadDir } = useQrDirectory();
+  const { dir, res: dirRes, reload: reloadDir } = useQrDirectory();
   const [qrFilter, setQrFilter] = useQrFilter('dashboard');
   const [period, setPeriod] = useState(() => periodOf(PeriodKind.week));
   const [metric, setMetric] = useState('amount');
@@ -68,13 +68,18 @@ export default function DashboardScreen({ scrollRef }) {
 
   const refresh = useCallback(() => Promise.all([reloadStats(), reloadRecent(), reloadDir()]), [reloadStats, reloadRecent, reloadDir]);
 
-  const stats = statsRes.value;
+  // Сменили период или фильтр — старые цифры не показываем, пока не пришли новые (иначе мелькают чужие точки).
+  const stats = freshValue(statsRes);
+  const statsPending = !stats && statsRes.loading;
+  const recentView = recent.stale ? { ...recent, value: undefined } : recent;
   const error = [statsRes, recent].find((r) => r.error && !r.loading)?.error ?? null;
   const loading = statsRes.loading || recent.loading;
   const now = new Date();
   const merchant = dir?.merchant?.name || state.session?.storeName || state.session?.terminalName || '—';
   const multiQr = (dir?.qrs.length ?? 0) > 1;
   const labelOf = (p) => (multiQr && p.qrId ? qrTitle(dir?.qrById.get(p.qrId), dir) : null);
+  // Повторный клик по выбранной строке снимает фильтр.
+  const pickQr = (ids) => setQrFilter(sameFilter(normalizeFilter(ids, dir), qrFilter) ? null : ids);
   const openPayment = (p) => navigate(Routes.homePayment, { state: { payment: paymentToState(p) } });
 
   const pickCustom = async () => {
@@ -149,21 +154,29 @@ export default function DashboardScreen({ scrollRef }) {
               <RetryBanner text={apiErrorText(error)} retryLabel={l.retry} onRetry={refresh} />
             </div>
           )}
-          <Kpis stats={stats} />
+          <Kpis stats={stats} pending={statsPending} />
           <div className="mt-3 grid gap-3 lg:mt-6 lg:grid-cols-[minmax(0,1fr)_340px] lg:gap-6">
-            <ChartCard stats={stats} loading={statsRes.loading} metric={metric} onMetric={setMetric} />
-            <PeakCard stats={stats} />
+            <ChartCard stats={stats} pending={statsPending} metric={metric} onMetric={setMetric} />
+            <PeakCard stats={stats} pending={statsPending} />
           </div>
           {multiQr && (
             <div className="mt-3 lg:mt-6">
-              <ByQrCard stats={stats} dir={dir} desktop={desktop} onPick={setQrFilter} onlyOne={qrFilter?.length === 1} />
+              <ByQrCard
+                stats={stats}
+                dir={dir}
+                desktop={desktop}
+                pending={statsPending || (!dir && dirRes.loading)}
+                filter={qrFilter}
+                onPick={pickQr}
+                onReset={() => setQrFilter(null)}
+              />
             </div>
           )}
           <div className="mt-3 lg:mt-6">
             {desktop ? (
-              <RecentCard res={recent} labelOf={labelOf} onOpen={openPayment} onAll={() => navigate(Routes.history)} now={now} />
+              <RecentCard res={recentView} labelOf={labelOf} onOpen={openPayment} onAll={() => navigate(Routes.history)} now={now} />
             ) : (
-              <LastPaymentCard res={recent} labelOf={labelOf} onOpen={openPayment} onAll={() => navigate(Routes.history)} />
+              <LastPaymentCard res={recentView} labelOf={labelOf} onOpen={openPayment} onAll={() => navigate(Routes.history)} />
             )}
           </div>
         </div>
@@ -173,7 +186,7 @@ export default function DashboardScreen({ scrollRef }) {
   );
 }
 
-function Kpis({ stats }) {
+function Kpis({ stats, pending }) {
   const t = stats?.totals;
   const prev = stats?.previous;
   const v = (fn) => (t ? fn() : '—');
@@ -186,6 +199,7 @@ function Kpis({ stats }) {
         delta={t && prev ? delta(t.success.amount, prev.success.amount) : null}
         hasPrev={!!prev}
         ready={!!t}
+        pending={pending}
       />
       <Kpi
         label={l.dashPayments}
@@ -193,6 +207,7 @@ function Kpis({ stats }) {
         delta={t && prev ? delta(t.success.count, prev.success.count) : null}
         hasPrev={!!prev}
         ready={!!t}
+        pending={pending}
       />
       <Kpi
         label={l.dashAvgCheck}
@@ -201,6 +216,7 @@ function Kpis({ stats }) {
         delta={t && prev ? delta(avgCheck(t.success), avgCheck(prev.success)) : null}
         hasPrev={!!prev}
         ready={!!t}
+        pending={pending}
       />
       <Kpi
         label={l.dashDeclined}
@@ -215,6 +231,7 @@ function Kpis({ stats }) {
         delta={t && prev ? delta(t.cancel.count, prev.cancel.count) : null}
         hasPrev={!!prev}
         ready={!!t}
+        pending={pending}
         // Отказов больше — это плохо: рост красным.
         invert
       />
@@ -223,7 +240,7 @@ function Kpis({ stats }) {
   );
 }
 
-function Kpi({ label, value, unit, sub, delta: d, hasPrev, ready, invert = false }) {
+function Kpi({ label, value, unit, sub, delta: d, hasPrev, ready, pending, invert = false }) {
   const good = d && d.dir !== 'flat' && (d.dir === 'up') !== invert;
   const tone = !d || d.dir === 'flat' ? 'bg-unknown-bg text-unknown-fg' : good ? 'bg-ok-bg text-ok-fg' : 'bg-cancel-bg text-cancel-fg';
   const Arrow = d?.dir === 'down' ? ArrowDownIcon : ArrowUpIcon;
@@ -231,13 +248,21 @@ function Kpi({ label, value, unit, sub, delta: d, hasPrev, ready, invert = false
     <Card className="flex min-w-0 flex-col p-4 md:p-5">
       <span className="text-[13px] leading-[1.35] text-fg2 md:text-[14px]">{label}</span>
       <div className="mt-2.5 md:mt-3">
-        <FitText>
-          <span className="text-[24px] font-semibold tracking-[-0.48px] tabular-nums md:text-[28px] md:tracking-[-0.56px]">{value}</span>
-          {unit && ready && <span className="ml-1.5 text-[13px] font-medium text-fg3">{unit}</span>}
-        </FitText>
+        {pending ? (
+          <div className="flex h-[29px] items-center md:h-[34px]">
+            <Skeleton className="h-6 w-[70%] max-w-[150px] md:h-7" />
+          </div>
+        ) : (
+          <FitText>
+            <span className="text-[24px] font-semibold tracking-[-0.48px] tabular-nums md:text-[28px] md:tracking-[-0.56px]">{value}</span>
+            {unit && ready && <span className="ml-1.5 text-[13px] font-medium text-fg3">{unit}</span>}
+          </FitText>
+        )}
       </div>
       <div className="mt-2 flex min-h-[22px] flex-wrap items-center gap-x-2 gap-y-1">
-        {d ? (
+        {pending ? (
+          <Skeleton className="h-[18px] w-14" />
+        ) : d ? (
           <>
             <span className={`inline-flex items-center gap-0.5 rounded-md py-px pr-1.5 pl-1 text-[12px] font-semibold tabular-nums ${tone}`}>
               {d.dir !== 'flat' && <Arrow size={13} />}
@@ -254,7 +279,7 @@ function Kpi({ label, value, unit, sub, delta: d, hasPrev, ready, invert = false
   );
 }
 
-function ChartCard({ stats, loading, metric, onMetric }) {
+function ChartCard({ stats, pending, metric, onMetric }) {
   const data = useMemo(() => {
     if (!stats) return [];
     return stats.series.map((b, i) => ({
@@ -285,7 +310,11 @@ function ChartCard({ stats, loading, metric, onMetric }) {
       </div>
       <div className="mt-4">
         {!stats ? (
-          <div className="flex h-[240px] items-center justify-center">{loading ? <Spinner /> : '—'}</div>
+          pending ? (
+            <ChartSkeleton />
+          ) : (
+            <div className="flex h-[240px] items-center justify-center text-fg3">—</div>
+          )
         ) : empty ? (
           <div className="flex h-[240px] items-center justify-center text-[14px] text-fg3">{l.dashChartEmpty}</div>
         ) : (
@@ -293,6 +322,18 @@ function ChartCard({ stats, loading, metric, onMetric }) {
         )}
       </div>
     </Card>
+  );
+}
+
+const chartSkeletonBars = [42, 64, 50, 78, 58, 88, 70];
+
+function ChartSkeleton() {
+  return (
+    <SkeletonGroup className="flex h-[240px] items-end gap-2 pb-6 pl-10 md:gap-3">
+      {chartSkeletonBars.map((h, i) => (
+        <Skeleton key={i} className="min-w-0 flex-1 rounded-t-[6px] rounded-b-none" style={{ height: `${h}%` }} />
+      ))}
+    </SkeletonGroup>
   );
 }
 
@@ -315,7 +356,9 @@ function Segmented({ value, onChange, options }) {
   );
 }
 
-function PeakCard({ stats }) {
+const peakSkeletonBars = [24, 40, 62, 90, 120, 104, 76, 96, 132, 110, 70, 46, 30, 18];
+
+function PeakCard({ stats, pending }) {
   const hours = stats?.byHour ?? [];
   const peak = peakHour(hours);
   const active = hours.filter((h) => h.count > 0);
@@ -327,12 +370,20 @@ function PeakCard({ stats }) {
   return (
     <Card className="flex min-w-0 flex-col p-4 md:p-5">
       <h2 className="text-[15px] font-semibold text-fg md:text-[16px]">{l.dashPeakHours}</h2>
-      <p className="mt-0.5 text-[13px] text-fg2">{peak ? l.dashPeakHour(peak.hour) : l.dashPeakHoursSub}</p>
+      {pending ? (
+        <Skeleton className="mt-1.5 h-3.5 w-40" />
+      ) : (
+        <p className="mt-0.5 text-[13px] text-fg2">{peak ? l.dashPeakHour(peak.hour) : l.dashPeakHoursSub}</p>
+      )}
       <div className="mt-4 flex min-h-[170px] flex-1 items-end gap-[3px]" role="img" aria-label={l.dashPeakHoursSub}>
-        {!stats || max === 0 ? (
-          <div className="flex w-full items-center justify-center self-center text-[14px] text-fg3">
-            {stats ? l.dashChartEmpty : <Spinner />}
+        {pending ? (
+          <div className="flex w-full items-end gap-[3px] self-stretch pb-[19px]" aria-busy="true">
+            {peakSkeletonBars.map((h, i) => (
+              <Skeleton key={i} className="min-w-0 flex-1 rounded-t-[4px] rounded-b-none" style={{ height: `${h}px` }} />
+            ))}
           </div>
+        ) : !stats || max === 0 ? (
+          <div className="flex w-full items-center justify-center self-center text-[14px] text-fg3">{stats ? l.dashChartEmpty : '—'}</div>
         ) : (
           shown.map((h) => (
             <div key={h.hour} className="flex min-w-0 flex-1 flex-col items-center gap-1.5" title={`${h.hour}:00 — ${operationsCount(h.count)}`}>
@@ -349,24 +400,70 @@ function PeakCard({ stats }) {
   );
 }
 
-function ByQrCard({ stats, dir, desktop, onPick, onlyOne }) {
+function ByQrCard({ stats, dir, desktop, pending, filter, onPick, onReset }) {
   const groups = stats && dir ? groupByStore(stats, dir) : null;
+  const isSelected = (ids) => filter != null && sameFilter(normalizeFilter(ids, dir), filter);
   return (
     <Card className="overflow-hidden">
-      <div className="px-4 pt-4 pb-2 md:px-5">
-        <h2 className="text-[15px] font-semibold text-fg md:text-[16px]">{l.dashByQr}</h2>
-        {!onlyOne && <p className="mt-0.5 text-[13px] text-fg2">{l.dashByQrHint}</p>}
+      <div className="flex items-start gap-3 px-4 pt-4 pb-2 md:px-5">
+        <div className="min-w-0 flex-1">
+          <h2 className="text-[15px] font-semibold text-fg md:text-[16px]">{l.dashByQr}</h2>
+          <p className="mt-0.5 text-[13px] text-fg2">{filter ? l.dashByQrFilteredHint : l.dashByQrHint}</p>
+        </div>
+        {filter && (
+          <button
+            type="button"
+            onClick={onReset}
+            className="-mt-1.5 -mr-2 flex min-h-10 shrink-0 items-center gap-1 rounded-full pr-3 pl-2.5 text-[14px] font-medium text-accent hover:bg-tab-active active:opacity-80"
+          >
+            <CloseIcon size={18} />
+            {l.dashByQrShowAll}
+          </button>
+        )}
       </div>
       {!groups ? (
-        <div className="flex justify-center py-8">
-          <Spinner size={28} stroke={3} />
-        </div>
+        pending ? (
+          <ByQrSkeleton desktop={desktop} />
+        ) : (
+          <p className="px-4 pt-2 pb-5 text-[14px] text-fg3 md:px-5">—</p>
+        )
+      ) : groups.length === 0 ? (
+        <p className="px-4 pt-2 pb-5 text-[14px] text-fg3 md:px-5">{l.dashChartEmpty}</p>
       ) : desktop ? (
-        <ByQrTable groups={groups} onPick={onPick} />
+        <ByQrTable groups={groups} onPick={onPick} isSelected={isSelected} />
       ) : (
-        <ByQrList groups={groups} onPick={onPick} />
+        <ByQrList groups={groups} onPick={onPick} isSelected={isSelected} />
       )}
     </Card>
+  );
+}
+
+function ByQrSkeleton({ desktop }) {
+  return (
+    <SkeletonGroup className={desktop ? 'border-t border-line-list' : 'pb-2'}>
+      {[0, 1].map((g) => (
+        <div key={g} className={desktop ? '' : 'border-t border-line-list'}>
+          <div className="flex items-center gap-4 border-b border-line-list bg-bg/60 px-4 py-3 md:py-2.5 md:pl-5 md:pr-5">
+            <div className="min-w-0 flex-1">
+              <Skeleton className="h-4 w-[45%] max-w-[200px]" />
+              <Skeleton className="mt-1.5 h-3 w-[60%] max-w-[260px]" />
+            </div>
+            <Skeleton className="h-4 w-20 md:w-24" />
+            {desktop && <Skeleton className="h-1.5 w-[150px] rounded-full" />}
+          </div>
+          {[0, 1].map((i) => (
+            <div key={i} className="flex items-center gap-4 border-b border-line-list px-4 py-3 pl-7 last:border-b-0 md:py-2.5 md:pl-9 md:pr-5">
+              <div className="min-w-0 flex-1">
+                <Skeleton className="h-3.5 w-[35%] max-w-[160px]" />
+                <Skeleton className="mt-1.5 h-3 w-[50%] max-w-[220px]" />
+              </div>
+              <Skeleton className="h-3.5 w-16 md:w-20" />
+              {desktop && <Skeleton className="h-1.5 w-[150px] rounded-full" />}
+            </div>
+          ))}
+        </div>
+      ))}
+    </SkeletonGroup>
   );
 }
 
@@ -381,7 +478,7 @@ function ShareBar({ share }) {
   );
 }
 
-function ByQrTable({ groups, onPick }) {
+function ByQrTable({ groups, onPick, isSelected }) {
   const th = 'py-2.5 text-left text-[12px] font-semibold tracking-[0.36px] text-fg3 uppercase';
   const pickable = (ids) => ({
     tabIndex: 0,
@@ -417,7 +514,9 @@ function ByQrTable({ groups, onPick }) {
         <tbody key={g.store?.id ?? 'unknown'}>
           <tr
             {...(g.store ? pickable(g.store.qrs.map((q) => q.id)) : {})}
-            className="cursor-pointer border-b border-line-list bg-bg/60 outline-offset-[-2px] hover:bg-hover"
+            className={`cursor-pointer border-b border-line-list outline-offset-[-2px] hover:bg-hover ${
+              g.store && isSelected(g.store.qrs.map((q) => q.id)) ? 'bg-tab-active' : 'bg-bg/60'
+            }`}
           >
             <th scope="rowgroup" className="py-2.5 pl-5 text-left">
               <div className="truncate text-[14px] font-semibold text-fg">{g.title}</div>
@@ -435,7 +534,9 @@ function ByQrTable({ groups, onPick }) {
             <tr
               key={r.qr.id}
               {...pickable([r.qr.id])}
-              className="cursor-pointer border-b border-line-list outline-offset-[-2px] last:border-b-0 hover:bg-hover active:bg-surface-pressed"
+              className={`cursor-pointer border-b border-line-list outline-offset-[-2px] last:border-b-0 hover:bg-hover active:bg-surface-pressed ${
+                isSelected([r.qr.id]) ? 'bg-tab-active' : ''
+              }`}
             >
               <td className="py-2.5 pl-9">
                 <div className="flex min-w-0 items-center gap-2">
@@ -464,15 +565,18 @@ function ByQrTable({ groups, onPick }) {
   );
 }
 
-function ByQrList({ groups, onPick }) {
+function ByQrList({ groups, onPick, isSelected }) {
   return (
     <div className="pb-2">
       {groups.map((g) => (
         <section key={g.store?.id ?? 'unknown'} className="border-t border-line-list">
           <button
             type="button"
+            aria-pressed={g.store ? isSelected(g.store.qrs.map((q) => q.id)) : undefined}
             onClick={() => g.store && onPick(g.store.qrs.map((q) => q.id))}
-            className="flex w-full items-center gap-3 bg-bg/60 px-4 py-3 text-left active:bg-surface-pressed"
+            className={`flex w-full items-center gap-3 px-4 py-3 text-left active:bg-surface-pressed ${
+              g.store && isSelected(g.store.qrs.map((q) => q.id)) ? 'bg-tab-active' : 'bg-bg/60'
+            }`}
           >
             <span className="min-w-0 flex-1">
               <span className="block truncate text-[15px] font-semibold text-fg">{g.title}</span>
@@ -484,8 +588,11 @@ function ByQrList({ groups, onPick }) {
             <button
               key={r.qr.id}
               type="button"
+              aria-pressed={isSelected([r.qr.id])}
               onClick={() => onPick([r.qr.id])}
-              className="block w-full border-t border-line-list px-4 py-3 pl-7 text-left active:bg-surface-pressed"
+              className={`block w-full border-t border-line-list px-4 py-3 pl-7 text-left active:bg-surface-pressed ${
+                isSelected([r.qr.id]) ? 'bg-tab-active' : ''
+              }`}
             >
               <div className="flex items-baseline gap-3">
                 <span className="min-w-0 flex-1 truncate text-[14px] font-medium text-fg">{r.qr.name}</span>
@@ -522,7 +629,15 @@ function RecentCard({ res, labelOf, onOpen, onAll, now }) {
         </button>
       </div>
       {list == null ? (
-        <div className="flex justify-center py-8">{res.loading ? <Spinner size={28} stroke={3} /> : '—'}</div>
+        res.loading ? (
+          <SkeletonGroup className="grid grid-cols-2 pb-1.5 [&>*]:border-b [&>*]:border-line-list [&>*:nth-last-child(-n+2)]:border-b-0 [&>*:nth-child(odd)]:border-r">
+            {Array.from({ length: recentCount }, (_, i) => (
+              <PaymentRowSkeleton key={i} />
+            ))}
+          </SkeletonGroup>
+        ) : (
+          <div className="flex justify-center py-8 text-fg3">—</div>
+        )
       ) : list.length === 0 ? (
         <p className="px-5 pt-2 pb-6 text-[14px] text-fg3">{empty}</p>
       ) : (
@@ -549,6 +664,10 @@ function LastPaymentCard({ res, labelOf, onOpen, onAll }) {
       </div>
       {p ? (
         <PaymentRow payment={p} withDay qrLabel={labelOf(p)} onTap={() => onOpen(p)} />
+      ) : res.loading && !res.value ? (
+        <SkeletonGroup>
+          <PaymentRowSkeleton />
+        </SkeletonGroup>
       ) : (
         <PressableCard radius={0} border="border-transparent" className="px-4 pt-1 pb-4 shadow-none" onTap={null}>
           <span className="text-[14px] text-fg3">{res.loading ? '…' : l.homeNoPayments}</span>

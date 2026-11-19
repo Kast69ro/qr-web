@@ -191,6 +191,8 @@ export const l = {
   dashPeakHour: (h) => `Пик — ${h}:00–${h + 1}:00`,
   dashByQr: 'По точкам и QR',
   dashByQrHint: 'Нажмите на строку, чтобы оставить в статистике только её.',
+  dashByQrFilteredHint: 'Показана только выбранная часть. Нажмите на строку ещё раз, чтобы вернуть все.',
+  dashByQrShowAll: 'Показать все',
   dashShare: 'Доля',
   dashColQr: 'Точка / QR',
   dashExport: 'Статистика в PDF',

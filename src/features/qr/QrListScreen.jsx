@@ -5,11 +5,11 @@ import { apiErrorText } from '../../core/api/apiErrorText';
 import { l } from '../../core/i18n/ru';
 import { formatDateTimeShort, formatFullDate, formatMoney } from '../../core/utils/format';
 import { useWide } from '../../core/utils/useMediaQuery';
-import { useResource } from '../../core/utils/useResource';
+import { freshValue, useResource } from '../../core/utils/useResource';
 import { Card, pageClass, PageHeader, RetryBanner, ToolbarButton } from '../../core/widgets/Common';
 import { BarChartIcon, ChevronRightIcon, ExpandMoreIcon, HistoryRoundedIcon, PlaceIcon, QrCodeIcon, RefreshIcon, SearchIcon } from '../../core/widgets/Icons';
 import { PullToRefresh } from '../../core/widgets/PullToRefresh';
-import { Spinner } from '../../core/widgets/Spinner';
+import { Skeleton, SkeletonGroup } from '../../core/widgets/Skeleton';
 import { granularityFor, operationsCount } from '../dashboard/statsDomain';
 import { statsRepository } from '../dashboard/statsRepository';
 import { customPeriod, datedPeriodKinds, formatRangeShort, period as periodOf, PeriodKind, periodRange, samePeriod } from '../history/historyDomain';
@@ -37,7 +37,10 @@ export default function QrListScreen({ scrollRef }) {
   }, [period]);
   const refresh = useCallback(() => Promise.all([reloadDir(), reloadStats()]), [reloadDir, reloadStats]);
 
-  const byQr = useMemo(() => new Map((statsRes.value?.byQr ?? []).map((r) => [r.qrId, r])), [statsRes.value]);
+  const stats = freshValue(statsRes);
+  const statsPending = !stats && statsRes.loading;
+  const dirPending = !dir && dirRes.loading;
+  const byQr = useMemo(() => new Map((stats?.byQr ?? []).map((r) => [r.qrId, r])), [stats]);
   const groups = useMemo(() => filterStores(dir, query), [dir, query]);
   const error = [dirRes, statsRes].find((r) => r.error && !r.loading)?.error ?? null;
   const now = new Date();
@@ -60,7 +63,7 @@ export default function QrListScreen({ scrollRef }) {
   };
 
   const active = dir?.qrs.filter((q) => q.status === QrStatus.active).length ?? 0;
-  const turnover = statsRes.value?.totals.success ?? null;
+  const turnover = stats?.totals.success ?? null;
 
   return (
     <div className="pt-safe relative flex h-full flex-col bg-bg">
@@ -94,11 +97,12 @@ export default function QrListScreen({ scrollRef }) {
             </div>
           )}
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-6">
-            <Mini label={l.qrsTotalStores} value={dir ? String(dir.stores.length) : '—'} />
-            <Mini label={l.qrsTotalQrs} value={dir ? String(dir.qrs.length) : '—'} />
-            <Mini label={l.qrsTotalActive} value={dir ? String(active) : '—'} />
+            <Mini label={l.qrsTotalStores} value={dir ? String(dir.stores.length) : '—'} pending={dirPending} />
+            <Mini label={l.qrsTotalQrs} value={dir ? String(dir.qrs.length) : '—'} pending={dirPending} />
+            <Mini label={l.qrsTotalActive} value={dir ? String(active) : '—'} pending={dirPending} />
             <Mini
               label={l.qrsTotalTurnover}
+              pending={statsPending}
               value={turnover ? formatMoney(turnover.amount) : '—'}
               sub={turnover ? operationsCount(turnover.count) : null}
             />
@@ -116,15 +120,17 @@ export default function QrListScreen({ scrollRef }) {
           </label>
           <div className="mt-3 lg:mt-4">
             {!dir ? (
-              <div className="flex justify-center py-10">{dirRes.loading ? <Spinner /> : null}</div>
+              dirPending ? (
+                <QrListSkeleton wide={wide} />
+              ) : null
             ) : dir.qrs.length === 0 ? (
               <p className="px-2 py-10 text-[15px] text-fg3">{l.qrsEmpty}</p>
             ) : groups.length === 0 ? (
               <p className="px-2 py-10 text-[15px] text-fg3">{l.qrsNothingFound}</p>
             ) : wide ? (
-              <QrTable groups={groups} byQr={byQr} statsLoading={!statsRes.value} actions={actions} now={now} />
+              <QrTable groups={groups} byQr={byQr} statsLoading={!stats} actions={actions} now={now} />
             ) : (
-              groups.map((g) => <StoreCard key={g.store.id} group={g} byQr={byQr} actions={actions} now={now} />)
+              groups.map((g) => <StoreCard key={g.store.id} group={g} byQr={byQr} statsLoading={!stats} actions={actions} now={now} />)
             )}
           </div>
         </div>
@@ -157,13 +163,82 @@ function sumOf(qrs, byQr) {
   return { count, amount: cents / 100 };
 }
 
-function Mini({ label, value, sub }) {
+function Mini({ label, value, sub, pending = false }) {
   return (
     <Card className="min-w-0 p-4 md:p-5">
       <div className="text-[13px] text-fg2 md:text-[14px]">{label}</div>
-      <div className="mt-2 truncate text-[22px] font-semibold tracking-[-0.4px] tabular-nums md:text-[26px]">{value}</div>
-      {sub && <div className="mt-0.5 text-[12px] text-fg3 tabular-nums">{sub}</div>}
+      {pending ? (
+        <div className="mt-2 flex h-[30px] items-center md:h-[34px]">
+          <Skeleton className="h-6 w-[60%] max-w-[120px] md:h-7" />
+        </div>
+      ) : (
+        <div className="mt-2 truncate text-[22px] font-semibold tracking-[-0.4px] tabular-nums md:text-[26px]">{value}</div>
+      )}
+      {sub && !pending && <div className="mt-0.5 text-[12px] text-fg3 tabular-nums">{sub}</div>}
     </Card>
+  );
+}
+
+/** Ячейка с цифрой статистики: пока статистика грузится — заглушка. */
+function StatNum({ loading, children, width = 'w-10' }) {
+  return loading ? <Skeleton className={`ml-auto h-3.5 ${width}`} /> : children;
+}
+
+function QrListSkeleton({ wide }) {
+  const rows = (n) =>
+    Array.from({ length: n }, (_, i) => (
+      <div key={i} className="flex items-center gap-3 border-t border-line-list px-4 py-3 md:gap-6 md:pr-5 md:pl-[50px]">
+        <div className="min-w-0 flex-1">
+          <Skeleton className="h-4 w-[45%] max-w-[180px]" />
+          <Skeleton className="mt-1.5 h-3 w-[60%] max-w-[240px]" />
+        </div>
+        {wide && <Skeleton className="h-6 w-20 rounded-[7px]" />}
+        {wide && <Skeleton className="h-3.5 w-24" />}
+        <Skeleton className="h-4 w-16 md:w-20" />
+        {wide && <Skeleton className="h-10 w-[126px] rounded-full" />}
+      </div>
+    ));
+  const store = (
+    <div className="flex items-center gap-3 px-4 pt-4 pb-3 md:py-3 md:pl-5">
+      <Skeleton className="h-9 w-9 shrink-0 rounded-full md:h-8 md:w-8" />
+      <div className="min-w-0 flex-1">
+        <Skeleton className="h-4 w-[40%] max-w-[200px]" />
+        <Skeleton className="mt-1.5 h-3 w-[55%] max-w-[280px]" />
+      </div>
+      <Skeleton className="h-4 w-20" />
+    </div>
+  );
+  return wide ? (
+    <SkeletonGroup>
+      <Card className="overflow-hidden">
+        <div className="flex gap-6 border-b border-line-list px-5 py-3.5">
+          <Skeleton className="h-3 w-12" />
+          <div className="flex-1" />
+          <Skeleton className="h-3 w-16" />
+          <Skeleton className="h-3 w-16" />
+          <Skeleton className="h-3 w-20" />
+        </div>
+        {[0, 1].map((g) => (
+          <div key={g} className={g ? 'border-t border-line-list' : ''}>
+            <div className="bg-bg/60">{store}</div>
+            {rows(2)}
+          </div>
+        ))}
+      </Card>
+    </SkeletonGroup>
+  ) : (
+    <SkeletonGroup>
+      {[0, 1].map((g) => (
+        <Card key={g} className="mb-3 overflow-hidden">
+          {store}
+          <div className="flex gap-2 px-4 pb-3">
+            <Skeleton className="h-10 w-[104px] rounded-full" />
+            <Skeleton className="h-10 w-[120px] rounded-full" />
+          </div>
+          {rows(2)}
+        </Card>
+      ))}
+    </SkeletonGroup>
   );
 }
 
@@ -254,8 +329,12 @@ function QrTable({ groups, byQr, statsLoading, actions, now }) {
                     </div>
                   </div>
                 </th>
-                <td className="py-3 text-right text-[14px] font-semibold tabular-nums">{statsLoading ? '…' : sum.count}</td>
-                <td className="py-3 text-right text-[14px] font-semibold tabular-nums">{statsLoading ? '…' : formatMoney(sum.amount)}</td>
+                <td className="py-3 text-right text-[14px] font-semibold tabular-nums">
+                  <StatNum loading={statsLoading} width="w-8">{sum.count}</StatNum>
+                </td>
+                <td className="py-3 text-right text-[14px] font-semibold tabular-nums">
+                  <StatNum loading={statsLoading} width="w-20">{formatMoney(sum.amount)}</StatNum>
+                </td>
                 <td className="py-3 pr-5">
                   <div className="flex justify-end gap-1.5">
                     <Action compact icon={<HistoryRoundedIcon size={18} />} label={l.qrsOpenHistory} onTap={() => actions.history(ids)} />
@@ -295,8 +374,12 @@ function QrTable({ groups, byQr, statsLoading, actions, now }) {
                       </td>
                       <td className="py-3 text-[14px] text-fg2 tabular-nums">{q.createdAt ? formatFullDate(q.createdAt) : '—'}</td>
                       <td className="truncate py-3 text-[14px] text-fg2 tabular-nums">{lastText(q, now)}</td>
-                      <td className="py-3 text-right text-[14px] tabular-nums">{statsLoading ? '…' : r.count}</td>
-                      <td className="py-3 text-right text-[14px] font-medium tabular-nums">{statsLoading ? '…' : formatMoney(r.amount)}</td>
+                      <td className="py-3 text-right text-[14px] tabular-nums">
+                        <StatNum loading={statsLoading} width="w-6">{r.count}</StatNum>
+                      </td>
+                      <td className="py-3 text-right text-[14px] font-medium tabular-nums">
+                        <StatNum loading={statsLoading} width="w-16">{formatMoney(r.amount)}</StatNum>
+                      </td>
                       <td className="py-3 pr-5">
                         <div className="flex justify-end gap-1.5">
                           <Action compact primary icon={<QrCodeIcon size={18} />} label={l.qrsShowQr} onTap={() => actions.showQr(q)} />
@@ -345,7 +428,7 @@ function QrDetails({ qr }) {
 }
 
 
-function StoreCard({ group: { store, qrs }, byQr, actions, now }) {
+function StoreCard({ group: { store, qrs }, byQr, statsLoading, actions, now }) {
   const sum = sumOf(qrs, byQr);
   const ids = store.qrs.map((q) => q.id);
   return (
@@ -358,17 +441,24 @@ function StoreCard({ group: { store, qrs }, byQr, actions, now }) {
           <div className="truncate text-[16px] font-semibold text-fg">{shortStoreName(store)}</div>
           <div className="mt-0.5 truncate text-[13px] text-fg2">{[store.city, store.address].filter(Boolean).join(', ')}</div>
         </div>
-        <div className="shrink-0 text-right">
-          <div className="text-[16px] font-semibold tabular-nums">{formatMoney(sum.amount)}</div>
-          <div className="text-[12px] text-fg3 tabular-nums">{operationsCount(sum.count)}</div>
-        </div>
+        {statsLoading ? (
+          <div className="flex shrink-0 flex-col items-end pt-0.5">
+            <Skeleton className="h-4 w-20" />
+            <Skeleton className="mt-1.5 h-3 w-14" />
+          </div>
+        ) : (
+          <div className="shrink-0 text-right">
+            <div className="text-[16px] font-semibold tabular-nums">{formatMoney(sum.amount)}</div>
+            <div className="text-[12px] text-fg3 tabular-nums">{operationsCount(sum.count)}</div>
+          </div>
+        )}
       </div>
       <div className="flex gap-2 px-4 pb-3">
         <Action icon={<HistoryRoundedIcon size={17} />} label={l.qrsOpenHistory} onTap={() => actions.history(ids)} />
         <Action icon={<BarChartIcon size={17} />} label={l.qrsOpenStats} onTap={() => actions.stats(ids)} />
       </div>
       {qrs.map((q) => (
-        <MobileQrRow key={q.id} qr={q} stats={byQr.get(q.id)?.success ?? zero} actions={actions} now={now} />
+        <MobileQrRow key={q.id} qr={q} stats={statsLoading ? null : (byQr.get(q.id)?.success ?? zero)} actions={actions} now={now} />
       ))}
     </Card>
   );
@@ -388,7 +478,7 @@ function MobileQrRow({ qr, stats, actions, now }) {
           <span className="min-w-0 flex-1 truncate">
             {l.qrsColLast}: {lastText(qr, now)}
           </span>
-          <span className="shrink-0 font-medium text-fg">{formatMoney(stats.amount)}</span>
+          {stats ? <span className="shrink-0 font-medium text-fg">{formatMoney(stats.amount)}</span> : <Skeleton className="h-3.5 w-16 shrink-0" />}
         </div>
       </button>
       {open && (

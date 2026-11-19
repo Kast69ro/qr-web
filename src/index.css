@@ -311,6 +311,14 @@
     transform: translateY(0);
   }
 }
+@keyframes skeleton-pulse {
+  50% {
+    opacity: 0.45;
+  }
+}
+@utility skeleton {
+  animation: skeleton-pulse 1.4s ease-in-out infinite;
+}
 @utility anim-fade {
   animation: fade-in 200ms ease-out both;
 }
@@ -332,5 +340,8 @@
   .anim-snack {
     animation-duration: 1ms !important;
     transition-duration: 1ms !important;
+  }
+  .skeleton {
+    animation: none;
   }
 }

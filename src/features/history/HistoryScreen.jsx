@@ -9,11 +9,11 @@ import { useWide } from '../../core/utils/useMediaQuery';
 import { Card, pageClass, PageHeader, PressableCard, RetryBanner, StatusChip, ToolbarButton } from '../../core/widgets/Common';
 import { PdfOutlinedIcon, RefreshIcon } from '../../core/widgets/Icons';
 import { PullToRefresh } from '../../core/widgets/PullToRefresh';
-import { Spinner } from '../../core/widgets/Spinner';
+import { Skeleton, SkeletonGroup } from '../../core/widgets/Skeleton';
 import { useToast } from '../../core/widgets/Toast';
 import { useSession } from '../auth/SessionContext';
 import { PaymentStatus, paymentToState, statusStyle } from '../payment/payment';
-import { StatusIcon } from '../payment/PaymentRow';
+import { PaymentRowSkeleton, StatusIcon } from '../payment/PaymentRow';
 import { filterDescription, qrTitle } from '../qr/qrDomain';
 import { QrPicker } from '../qr/QrPicker';
 import { useQrDirectory, useQrFilter } from '../qr/QrDirectory';
@@ -138,9 +138,16 @@ export default function HistoryScreen({ scrollRef }) {
             </div>
           )}
           {!data && history.loading ? (
-            <div className="flex justify-center py-10">
-              <Spinner />
-            </div>
+            <SkeletonGroup>
+              <Skeleton className="mx-1 mt-1 mb-2.5 h-3.5 w-28" />
+              <Card className="overflow-hidden">
+                {Array.from({ length: 6 }, (_, i) => (
+                  <div key={i} className={i ? 'border-t border-line-list' : ''}>
+                    <PaymentRowSkeleton />
+                  </div>
+                ))}
+              </Card>
+            </SkeletonGroup>
           ) : data && groups.length === 0 ? (
             <p className="px-2 py-10 text-[15px] leading-[1.5] text-fg3">{emptyText}</p>
           ) : null}

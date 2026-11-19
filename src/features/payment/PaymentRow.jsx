@@ -1,6 +1,7 @@
 import { l } from '../../core/i18n/ru';
 import { daysBetween, formatDayLabel, formatMoney, formatTime } from '../../core/utils/format';
 import { CheckIcon, CloseIcon, QuestionIcon, ScheduleIcon, UndoIcon } from '../../core/widgets/Icons';
+import { Skeleton } from '../../core/widgets/Skeleton';
 import { PaymentStatus, statusStyle } from './payment';
 
 const icons = {
@@ -56,5 +57,22 @@ export function PaymentRow({ payment: p, onTap, withDay = false, now = new Date(
         <span className={`mt-0.5 text-[12px] font-medium ${st.fg}`}>{st.label}</span>
       </span>
     </button>
+  );
+}
+
+/** Заглушка того же размера, что и `PaymentRow`. */
+export function PaymentRowSkeleton() {
+  return (
+    <div className="flex w-full items-center gap-3 px-4 py-3 md:px-5">
+      <Skeleton className="h-10 w-10 shrink-0 rounded-full" />
+      <span className="min-w-0 flex-1">
+        <Skeleton className="h-4 w-[55%] max-w-[180px]" />
+        <Skeleton className="mt-1.5 h-3 w-[40%] max-w-[130px]" />
+      </span>
+      <span className="flex shrink-0 flex-col items-end">
+        <Skeleton className="h-[18px] w-20" />
+        <Skeleton className="mt-1.5 h-3 w-12" />
+      </span>
+    </div>
   );
 }
